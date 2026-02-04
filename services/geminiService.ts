@@ -322,15 +322,19 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
           if (isCreativeBg) {
             stylePrompt = `[VISUAL IDENTITY SOURCE]
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
-INSTRUCTION: You must act as a Brand Designer. Analyze Image 2 to extract the EXACT Brand Assets.
-1. COLORS: Extract the dominant brand colors from Image 2.
-2. SHAPES: Apply the geometric shapes, lines, or patterns found in Image 2.
-3. STYLE: Match the "vibe" (e.g., Tech, Organic, Minimalist, Luxury) of Image 2.
+INSTRUCTION: You must act as a High-End Brand Designer (UI/UX & Corporate Identity Specialist).
+1. ANALYZE IMAGE 2: Extract the EXACT Brand Assets (Logo geometry, color palette, typography style).
+2. GEOMETRY IMPERATIVE: Use the SHAPES from the logo as MASSIVE 3D ARCHITECTURAL ELEMENTS.
+   - If the logo has curves, build a world of smooth, flowing 3D curves and spheres.
+   - If the logo is angular, use sharp, dynamic 3D polygons, glass shards, and technological grids.
+3. COMPOSITION: Create a 'Corporate Memphis' meets 'High-Tech Abstract' environment.
+   - The background should feel like a premium software landing page or a high-end banking ad.
+   - Use DEPTH, GRADIENTS (Glassmorphism), and NEON/GLOW effects matching the brand colors.
 
-EXECUTION: Create a STUNNING HIGH-RESOLUTION CREATIVE BACKGROUND based on these assets.
-It should be a masterpiece of design, suitable for high-end usage.
-If a person is included (Image 1), integrate them seamlessly into this creative world (Photo Montage).
-If no person is included, create a beautiful abstract artistic background.`;
+EXECUTION: Create a STUNNING HIGH-RESOLUTION CREATIVE BACKGROUND.
+If a person is included (Image 1), they should be 'hugging' or interacting with these giant 3D brand elements.
+The person should feel like the HERO of this brand universe.
+If no person is included, create an abstract masterpiece suitable for a desktop wallpaper.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
