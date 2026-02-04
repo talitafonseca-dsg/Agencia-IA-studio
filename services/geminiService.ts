@@ -284,7 +284,7 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
               text: `[NO MODEL PROVIDED - CREATIVE BACKGROUND MODE]
               >>> CRITICAL: DO NOT INCLUDE ANY PERSON, FACE, OR HUMAN FIGURE.
               >>> DESIGN ONLY: Use abstract shapes, geometric elements, and 3D icons.
-              >>> NEGATIVE PROMPT: Humans, people, face, woman, skin, text, watermark, signature, noise, grunge, dirt, messy, chaotic, glitch, low quality.`
+              >>> NEGATIVE PROMPT: Humans, people, face, woman, skin, text, typography, letters, words, watermark, signature, logo, icon, symbol, white border, frame, letterbox, empty edges, noise, grunge, messy.`
             });
           } else {
             // LEGACY FALLBACK FOR SOCIAL POSTS (Generate Avatar if missing)
@@ -323,17 +323,20 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
             stylePrompt = `[VISUAL IDENTITY SOURCE]
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
 INSTRUCTION: You must act as a Minimalist UI Designer (Google Material Design Expert).
-1. ANALYZE IMAGE 2: Extract the EXACT Brand Assets (Logo geometry, color palette).
-2. COMPOSITION STYLE: Create a ULTRA-CLEAN CORPORATE BACKGROUND.
-   - KEYWORD: "SOLIDITY". Use LARGE, SOLID FIELDS of brand colors.
-   - GEOMETRY: Use 1 or 2 large abstract shapes derived from the logo (e.g., a giant curve or a diagonal block).
-   - AVOID: "Confused" patterns, small particles, grime, texture noise, or scattered elements.
-   - NEGATIVE SPACE: Maintain huge areas of clean, solid color or subtle gradient.
-3. COLORS: STRICTLY use the brand palette.
 
-EXECUTION: Design a pristine, professional backdrop.
-The subject (Image 1) must pop against large, clean zones of color.
-Think "Big Tech Presentation Layer" - clear, bold, and strictly organized.`;
+CRITICAL RULES (VIOLATION = FAILURE):
+1. **NO TEXT**: NEVER write words, letters, or headlines. The background must be devoid of typography.
+2. **NO LOGOS**: DO NOT aim to purely copy the logo icon. Use its *geometry* (curves/angles/colors) to create an ABSTRACT background pattern.
+3. **FULL BLEED**: The background color must fill 100% of the canvas. No white borders, no framing, no letterbox.
+
+ANALYSIS & EXECUTION:
+1. Extract the BRAND PALETTE from Image 2. Apply it in LARGE, SOLID FIELDS.
+2. Create a clean, geometric composition using 1 or 2 GIANT shapes derived from the logo.
+   - Example: If logo is a circle, use a massive smooth arc in the background.
+   - Example: If logo is a square, use a sharp diagonal block.
+3. Keep it ULTRA-CLEAN. No visual noise. No small particles.
+
+RESULT: A pristine, professional corporate backdrop that supports the subject (Image 1) without distractions.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
