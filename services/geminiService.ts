@@ -19,18 +19,9 @@ export const generateStudioCreative = async (
     try {
       const variationPrompt = constructPrompt(config, v, customModelImage, !!stickerImage, !!productImage, !!referenceImage);
 
-      // OPTIMIZATION: For PPT Generation, ONLY send the subject image for Slide 1 (Cover) and Slide 4 (Content).
-      // For all other slides (Agenda, Section, Data, Contact), we want PURE design without the person to keep it clean.
-      let variationPrimary = primaryImage;
-      let variationCustomModel = customModelImage;
-
-      if (config.type === CreationType.CREATIVE_BACKGROUND) {
-        const slidesWithSubject = [1, 4]; // Cover & Content only
-        if (!slidesWithSubject.includes(v)) {
-          variationPrimary = null;
-          variationCustomModel = null;
-        }
-      }
+      // OPTIMIZATION: Removed PPT Slide logic. All creative backgrounds can include the subject if provided.
+      const variationPrimary = primaryImage;
+      const variationCustomModel = customModelImage;
 
       const imageUrl = await callImageApi(variationPrompt, config.aspectRatio, variationPrimary, referenceImage, productImage, stickerImage, variationCustomModel, config.studioStyle, config.mascotStyle, config.mockupStyle, config.style, config.socialClass, !!config.isEditableMode, v, config.type, apiKey);
       return imageUrl ? { id: variationId, url: imageUrl, originalUrl: imageUrl, variation: v } : null;
@@ -288,13 +279,11 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
           // If we are in CREATIVE_BACKGROUND mode and no subject is provided (Clean Slides),
           // we MUST NOT generate a random person.
           const isPPTMode = type === CreationType.CREATIVE_BACKGROUND;
-
           if (isPPTMode) {
             parts.push({
-              text: `[NO MODEL PROVIDED - CLEAN SLIDE MODE]
+              text: `[NO MODEL PROVIDED - CREATIVE BACKGROUND MODE]
               >>> CRITICAL: DO NOT INCLUDE ANY PERSON, FACE, OR HUMAN FIGURE.
               >>> DESIGN ONLY: Use abstract shapes, geometric elements, and 3D icons.
-              >>> PLACEHOLDER REQUIREMENT: You MUST include a GRAY RECTANGLE FRAME (Placeholder) where the user can insert a photo later.
               >>> NEGATIVE PROMPT: Humans, people, face, woman, man, girl, boy, skin, eyes, hands, body.`
             });
           } else {
@@ -338,9 +327,10 @@ INSTRUCTION: You must act as a Brand Designer. Analyze Image 2 to extract the EX
 2. SHAPES: Apply the geometric shapes, lines, or patterns found in Image 2.
 3. STYLE: Match the "vibe" (e.g., Tech, Organic, Minimalist, Luxury) of Image 2.
 
-EXECUTION: Create a new professional presentation background using these extracted assets.
-DO NOT simply crop the image. RE-CREATE the style in a high-resolution 3D or Vector render.
-MANDATORY: Leave negative space for text (PowerPoint style).`;
+EXECUTION: Create a STUNNING HIGH-RESOLUTION CREATIVE BACKGROUND based on these assets.
+It should be a masterpiece of design, suitable for high-end usage.
+If a person is included (Image 1), integrate them seamlessly into this creative world (Photo Montage).
+If no person is included, create a beautiful abstract artistic background.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]

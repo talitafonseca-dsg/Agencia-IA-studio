@@ -301,7 +301,7 @@ const App: React.FC = () => {
     try {
       const generated = await generateStudioCreative({
         ...config,
-        designCount: isCreativeBackground ? 6 : config.designCount, // FORCE 6 SLIDES FOR PPT
+        designCount: config.designCount,
         isEditableMode
       }, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined);
 
@@ -499,35 +499,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownloadPPT = async () => {
-    if (results.length === 0) return;
+  // Removed PPT generation function
 
-    try {
-      const slides = results.map(img => {
-        // Map variation index to PPT Slide Type
-        // 1=Cover, 2=Agenda, 3=Section, 4=Content, 5=Data, 6=End
-        const v = img.variation || 1;
-        let type: 'COVER' | 'AGENDA' | 'SECTION' | 'CONTENT_RIGHT' | 'DATA' | 'THANK_YOU' = 'CONTENT_RIGHT';
-
-        if (v === 1) type = 'COVER';
-        else if (v === 2) type = 'AGENDA';
-        else if (v === 3) type = 'SECTION';
-        else if (v === 4) type = 'CONTENT_RIGHT';
-        else if (v === 5) type = 'DATA';
-        else if (v === 6) type = 'THANK_YOU';
-
-        return {
-          imageUrl: img.url,
-          type: type
-        };
-      });
-
-      await generatePPTX(slides, "Tema_Corporativo_IA");
-    } catch (err) {
-      console.error("PPT Gen Error:", err);
-      alert("Erro ao gerar PowerPoint.");
-    }
-  };
 
   // Opens Canva editor directly with the correct dimensions
   const openInCanva = () => {
@@ -959,7 +932,7 @@ const App: React.FC = () => {
           >
             {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} fill={isReady ? "currentColor" : "none"} className={isReady ? "" : "opacity-10"} />}
             <span className="text-[11px] uppercase tracking-[0.3em] font-black">
-              {isGenerating ? t.sidebar.processing : isCreativeBackground ? "GERAR TEMA COMPLETO (6 SLIDES)" : t.sidebar.generate_btn}
+              {isGenerating ? t.sidebar.processing : isCreativeBackground ? "GERAR ARTES CRIATIVAS" : t.sidebar.generate_btn}
             </span>
           </button>
         </div>
@@ -1492,15 +1465,7 @@ const App: React.FC = () => {
                 <div className="flex items-center justify-between mb-8">
                   <h3 className="text-2xl font-black uppercase tracking-widest text-white">{t.main.results_title}</h3>
                   <div className="flex items-center gap-4">
-                    {isCreativeBackground && (
-                      <button
-                        onClick={handleDownloadPPT}
-                        className="px-8 py-3 bg-[#D04423] text-white rounded-xl font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(208,68,35,0.4)] flex items-center gap-3 animate-in fade-in"
-                      >
-                        <FileText size={18} />
-                        BAIXAR ARQUIVO PPTX
-                      </button>
-                    )}
+
                     <button
                       onClick={handleReset}
                       className="px-8 py-3 bg-white text-black rounded-xl font-black uppercase tracking-[0.2em] hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(255,255,255,0.3)] flex items-center gap-3"
