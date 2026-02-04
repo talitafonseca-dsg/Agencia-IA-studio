@@ -325,27 +325,33 @@ ROLE: You are a Senior Brand Designer at a top-tier agency.
 INPUT: IMAGE 2 is the CLIENT'S LOGO/BRAND ASSETS.
 
 YOUR MISSION:
-1. ANALYZE the logo in Image 2: Extract the PRIMARY COLOR, SECONDARY COLOR, and the SHAPE LANGUAGE (is it rounded? angular? organic?).
-2. CREATE A BRAND BACKGROUND following the rules below.
+1. **ANALYZE IMAGE 2 DEEPLY**: Look at the logo. Identify:
+   - The exact HEX colors used (Primary and Secondary).
+   - The GEOMETRIC SHAPES in the logo (e.g., does it have a chevron? A curve? A circle? Sharp angles?).
+2. **DERIVE BACKGROUND SHAPES FROM THE LOGO**:
+   - DO NOT create generic shapes (like random circles or squares).
+   - ZOOM IN 500% on a specific part of the logo icon.
+   - USE THAT ZOOMED-IN SHAPE as a GIANT BACKGROUND ELEMENT.
+   - Example: If the logo has an arrow, create a MASSIVE arrow shape cutting across the background.
+   - Example: If the logo has a curved wave, create a GIANT WAVE shape spanning the entire canvas.
 
 BACKGROUND STYLE: ${variationIndex % 2 !== 0 ? 'LIGHT THEME (White Canvas)' : 'DARK THEME (Solid Brand Color Canvas)'}
 
 COMPOSITION RULES (STRICT):
-- USE ONLY 2 TO 3 GIANT SHAPES. No more. Minimalism is key.
-- SHAPES MUST BE: LARGE ROUNDED ORGANIC FORMS. Think "soft blobs", "smooth curves", "rounded corners". NOT sharp diagonal lines.
+- USE ONLY 2 TO 3 GIANT SHAPES derived from the logo. Minimalism is key.
 - SHAPES MUST BE HUGE: They should span 30-50% of the canvas each.
 ${variationIndex % 2 !== 0
                 ? `- CANVAS: Pure White or very light grey.
-- SHAPES: Apply the brand colors (e.g., Navy Blue blob, Orange accent blob) on TOP of the white.`
+- SHAPES: Apply the brand colors (derived from Image 2) to the shapes.`
                 : `- CANVAS: Fill 100% with the Primary Brand Color (e.g., Deep Navy Blue, Dark Teal).
-- SHAPES: Use a SLIGHTLY LIGHTER or DARKER shade of the same color for the blobs to create subtle depth. Add ONE small accent of the Secondary Color (e.g., Orange corner).`}
+- SHAPES: Use a SLIGHTLY LIGHTER or DARKER shade for depth. Add ONE small accent of the Secondary Color.`}
 
 CRITICAL NEGATIVE CONSTRAINTS (FAILURE IF VIOLATED):
-1. **ZERO TEXT**: Do not write any words, letters, or numbers. NOT EVEN THE BRAND NAME.
-2. **ZERO ICONS/LOGOS**: Do not redraw the logo icon. Extract its COLORS and SHAPE VIBE only.
-3. **NO SHARP LINES**: Avoid angular, diagonal, "tech" lines. All edges must be soft and rounded.
+1. **ZERO TEXT**: Do not write any words, letters, or numbers.
+2. **DO NOT REDRAW THE FULL LOGO**: Only use abstracted/zoomed parts of its geometry.
+3. **DO NOT USE GENERIC SHAPES**: No random blobs or circles that don't relate to the logo.
 
-GOAL: Create a professional, clean, premium background that a Fortune 500 company would use in their keynote presentation. The subject (Image 1) will be composited on top.`;
+GOAL: Create a professional, clean, premium background DIRECTLY INSPIRED BY the logo's geometry. The subject (Image 1) will be composited on top.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
