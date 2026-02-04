@@ -284,7 +284,7 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
               text: `[NO MODEL PROVIDED - CREATIVE BACKGROUND MODE]
               >>> CRITICAL: DO NOT INCLUDE ANY PERSON, FACE, OR HUMAN FIGURE.
               >>> DESIGN ONLY: Use abstract shapes, geometric elements, and 3D icons.
-              >>> NEGATIVE PROMPT: Humans, people, face, woman, man, girl, boy, skin, eyes, hands, body.`
+              >>> NEGATIVE PROMPT: Humans, people, face, woman, skin, text, watermark, signature, noise, grunge, dirt, messy, chaotic, glitch, low quality.`
             });
           } else {
             // LEGACY FALLBACK FOR SOCIAL POSTS (Generate Avatar if missing)
@@ -322,17 +322,18 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
           if (isCreativeBg) {
             stylePrompt = `[VISUAL IDENTITY SOURCE]
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
-INSTRUCTION: You must act as a Senior Graphic Designer (Brand Identity Specialist).
-1. ANALYZE IMAGE 2: Extract the EXACT Brand Assets (Logo geometry, color palette, typography style).
-2. COMPOSITION STYLE: Create a PROFESSIONAL CORPORATE GRAPHIC DESIGN background (Vector Art Style).
-   - DO NOT create a realistic 3D world or movie set.
-   - Use the logo's shapes as elegant framing elements, watermarks, or abstract vector overlays.
-   - Style: Clean, Modern, Minimalist, Corporate Memphis, Tech Startup.
-3. COLORS: STRICTLY use the brand palette from Image 2. Do not invent new colors.
+INSTRUCTION: You must act as a Minimalist UI Designer (Google Material Design Expert).
+1. ANALYZE IMAGE 2: Extract the EXACT Brand Assets (Logo geometry, color palette).
+2. COMPOSITION STYLE: Create a ULTRA-CLEAN CORPORATE BACKGROUND.
+   - KEYWORD: "SOLIDITY". Use LARGE, SOLID FIELDS of brand colors.
+   - GEOMETRY: Use 1 or 2 large abstract shapes derived from the logo (e.g., a giant curve or a diagonal block).
+   - AVOID: "Confused" patterns, small particles, grime, texture noise, or scattered elements.
+   - NEGATIVE SPACE: Maintain huge areas of clean, solid color or subtle gradient.
+3. COLORS: STRICTLY use the brand palette.
 
-EXECUTION: Create a HIGH-END CORPORATE BACKGROUND.
-The subject (Image 1) should be composed professionally within this graphic layout, like a LinkedIn banner or a website hero section.
-The background must support the subject, not overwhelm them with giant 3D objects.`;
+EXECUTION: Design a pristine, professional backdrop.
+The subject (Image 1) must pop against large, clean zones of color.
+Think "Big Tech Presentation Layer" - clear, bold, and strictly organized.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
