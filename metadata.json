@@ -1,0 +1,7 @@
+{
+  "name": "AGENCIA IA STUDIO",
+  "description": "Uma plataforma profissional de criação visual com IA, especializada em criativos de marketing, social media, anúncios e fotografia de estúdio.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

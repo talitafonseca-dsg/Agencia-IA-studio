@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Reparador Supabase</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            background: #080808;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="p-8 max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6 text-indigo-500">Diagnóstico de Storage Supabase</h1>
+
+    <div class="space-y-4 mb-8 bg-white/5 p-6 rounded-xl border border-white/10">
+        <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Supabase URL</label>
+            <input type="text" id="url" class="w-full bg-black/50 border border-white/20 rounded p-2 text-sm"
+                placeholder="https://xyz.supabase.co">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-gray-400 mb-1">Supabase Anon Key</label>
+            <input type="text" id="key" class="w-full bg-black/50 border border-white/20 rounded p-2 text-sm"
+                placeholder="eyJh...">
+        </div>
+        <button onclick="startDiagnosis()"
+            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded transition">
+            Iniciar Diagnóstico
+        </button>
+    </div>
+
+    <div id="logs" class="space-y-2 font-mono text-xs"></div>
+
+    <script>
+        const log = (msg, type = 'info') => {
+            const div = document.createElement('div');
+            const color = type === 'error' ? 'text-red-400' : type === 'success' ? 'text-green-400' : 'text-gray-400';
+            div.className = `${color} border-b border-white/5 pb-1`;
+            div.innerHTML = `<span class="opacity-50">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            document.getElementById('logs').appendChild(div);
+        };
+
+        // Try to autofill from local storage / known values if possible (manual for now)
+        // We could try to read env vars if this was a module, but it's raw HTML.
+
+        async function startDiagnosis() {
+            document.getElementById('logs').innerHTML = '';
+            const url = document.getElementById('url').value;
+            const key = document.getElementById('key').value;
+
+            if (!url || !key) {
+                log('Por favor, preencha URL e Chave.', 'error');
+                return;
+            }
+
+            log('Conectando ao Supabase...');
+            const supabase = window.supabase.createClient(url, key);
+
+            try {
+                // 1. Auth Check
+                log('1. Verificando Autenticação...');
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+                if (sessionError) log(`Erro de Sessão: ${sessionError.message}`, 'error');
+
+                if (session) {
+                    log(`✅ Usuário Logado: ${session.user.email}`, 'success');
+                } else {
+                    log('⚠️ Não há sessão ativa neste navegador. Tentarei Login Anônimo/Refresh...', 'info');
+                    // Check if we can just continue as anon? No, storage usually requires auth.
+                    log('⚠️ É recomendável estar logado na aplicação principal (localhost:3000) primeiro.', 'info');
+                }
+
+                // 2. Database Check
+                log('2. Verificando Tabela Projects...');
+                const { count, error: dbError } = await supabase.from('projects').select('*', { count: 'exact', head: true });
+                if (dbError) {
+                    log(`❌ Erro ao acessar banco: ${dbError.message}`, 'error');
+                } else {
+                    log(`✅ Banco Conectado. Total de projetos: ${count}`, 'success');
+                }
+
+                // 3. Storage Check
+                log('3. Verificando Storage Bucket (project-images)...');
+                // Attempt to upload a small file
+                const blob = new Blob(['diagnostic test'], { type: 'text/plain' });
+                // If logged in use user ID, else 'anon_test'
+                const userId = session ? session.user.id : 'anon_test';
+                const fileName = `${userId}/diag_${Date.now()}.txt`;
+
+                log(`Tentando upload de teste: ${fileName} ...`);
+
+                const { data, error: uploadError } = await supabase.storage
+                    .from('project-images')
+                    .upload(fileName, blob, { upsert: true });
+
+                if (uploadError) {
+                    log(`❌ FALHA NO UPLOAD: ${uploadError.message}`, 'error');
+                    log('Possíveis causas:');
+                    log('- Bucket "project-images" não existe.');
+                    log('- "project-images" não está setado como PUBLIC.');
+                    log('- Políticas RLS bloqueando (requer Auth).');
+
+                    if (uploadError.message.includes('not found') || uploadError.message.includes('404')) {
+                        log('🔴 BUCKET NÃO ENCONTRADO! Execute o SQL de migração novamente.', 'error');
+                    }
+                } else {
+                    log('✅ Upload com Sucesso!', 'success');
+                    log('✅ Storage está funcionando corretamente.', 'success');
+
+                    // Cleanup
+                    await supabase.storage.from('project-images').remove([fileName]);
+                    log('Arquivo de teste removido.', 'info');
+                }
+
+            } catch (err) {
+                log(`Erro Crítico: ${err.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

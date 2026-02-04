@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Supabase Isolado</title>
+    <style>
+        body { background: #111; color: #fff; font-family: monospace; padding: 20px; }
+        .log { margin-bottom: 5px; border-bottom: 1px solid #333; padding: 5px; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .warn { color: #fbbf24; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h2>Diagnóstico Isolado Supabase</h2>
+    <div id="logs"></div>
+
+    <script>
+        const log = (msg, type = '') => {
+            const div = document.createElement('div');
+            div.className = 'log ' + type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('logs').appendChild(div);
+        };
+
+        const runTest = async () => {
+            log('Iniciando teste...');
+            
+            // 1. Load Env (Hardcoded for this test based on your file)
+            const SUPABASE_URL = 'https://kbziytwdxfuddociedoi.supabase.co';
+            const SUPABASE_KEY = 'sb_publishable__c80OXiK7Gd7jW5TSPBgAQ_3oC97AcM'; // PUBLISHABLE KEY from your .env
+
+            if (!SUPABASE_URL || !SUPABASE_KEY) {
+                log('ERRO: Credenciais não encontradas no script de teste.', 'error');
+                return;
+            }
+
+            log(`URL: ${SUPABASE_URL}`);
+            log('2. Teste de Conexão (Fetch HEAD)...');
+
+            try {
+                const res = await fetch(SUPABASE_URL, { method: 'HEAD' });
+                log(`Network Status: ${res.status} ${res.statusText}`, 'success');
+            } catch (e) {
+                log(`ERRO DE REDE: ${e.message}`, 'error');
+                log('Se falhou aqui, algo no seu PC ou Rede está bloqueando o Supabase.', 'warn');
+                return;
+            }
+
+            log('3. Inicializando Client Supabase...');
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+            });
+
+            log('4. Testando Auth (getUser)...');
+            try {
+                const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de 10s')), 10000));
+                const authCheck = supabase.auth.getUser();
+                
+                const { data, error } = await Promise.race([authCheck, timeout]);
+                
+                if (error) {
+                    log(`Auth Erro: ${error.message}`, 'error');
+                } else {
+                    log(`Auth Sucesso! Usuário: ${data.user ? data.user.email : 'Não logado (Anônimo)'}`, 'success');
+                }
+            } catch (e) {
+                log(`Auth Falha/Timeout: ${e.message}`, 'error');
+            }
+        };
+
+        runTest();
+    </script>
+</body>
+</html>

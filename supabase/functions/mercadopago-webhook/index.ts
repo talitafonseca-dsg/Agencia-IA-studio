@@ -1,0 +1,183 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const DEFAULT_PASSWORD = "agia123456";
+
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+    },
+});
+
+Deno.serve(async (req: Request) => {
+    // Mercado Pago envia notificações via POST
+    if (req.method !== "POST") {
+        return new Response("Method not allowed", { status: 405 });
+    }
+
+    try {
+        const body = await req.json();
+        console.log("Webhook received:", JSON.stringify(body));
+
+        // Mercado Pago envia diferentes tipos de notificação
+        // Queremos apenas notificações de pagamento
+        if (body.type !== "payment" && body.action !== "payment.created" && body.action !== "payment.updated") {
+            console.log("Ignoring non-payment notification:", body.type || body.action);
+            return new Response("OK", { status: 200 });
+        }
+
+        // Obter ID do pagamento
+        const paymentId = body.data?.id || body.id;
+
+        if (!paymentId) {
+            console.error("No payment ID found in webhook");
+            return new Response("OK", { status: 200 });
+        }
+
+        // Buscar detalhes do pagamento no Mercado Pago
+        const paymentResponse = await fetch(
+            `https://api.mercadopago.com/v1/payments/${paymentId}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+                },
+            }
+        );
+
+        if (!paymentResponse.ok) {
+            console.error("Failed to fetch payment details:", await paymentResponse.text());
+            return new Response("OK", { status: 200 });
+        }
+
+        const payment = await paymentResponse.json();
+        console.log("Payment details:", JSON.stringify(payment));
+
+        // Só processamos pagamentos aprovados
+        if (payment.status !== "approved") {
+            console.log("Payment not approved, status:", payment.status);
+
+            // Salvar registro do pagamento mesmo se não aprovado
+            await supabaseAdmin.from("payments").upsert({
+                mercadopago_payment_id: paymentId.toString(),
+                mercadopago_preference_id: payment.preference_id,
+                payer_email: payment.payer?.email || "unknown",
+                plan_type: getPlanFromReference(payment.external_reference),
+                amount: payment.transaction_amount,
+                status: payment.status,
+                metadata: payment,
+            }, { onConflict: "mercadopago_payment_id" });
+
+            return new Response("OK", { status: 200 });
+        }
+
+        // Extrair informações do pagamento
+        const payerEmail = payment.payer?.email;
+        const externalRef = payment.external_reference;
+        let planType = "semestral";
+
+        try {
+            const refData = JSON.parse(externalRef);
+            planType = refData.plan || "semestral";
+        } catch {
+            console.log("Could not parse external_reference, using default plan");
+        }
+
+        if (!payerEmail) {
+            console.error("No payer email found");
+            return new Response("OK", { status: 200 });
+        }
+
+        // Verificar se já criamos usuário para este pagamento
+        const { data: existingPayment } = await supabaseAdmin
+            .from("payments")
+            .select("user_created")
+            .eq("mercadopago_payment_id", paymentId.toString())
+            .single();
+
+        if (existingPayment?.user_created) {
+            console.log("User already created for this payment");
+            return new Response("OK", { status: 200 });
+        }
+
+        // Criar usuário no Supabase Auth
+        console.log("Creating user for:", payerEmail);
+
+        const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+            email: payerEmail,
+            password: DEFAULT_PASSWORD,
+            email_confirm: true, // Auto-confirma o email
+            user_metadata: {
+                plan_type: planType,
+                payment_id: paymentId,
+                purchase_date: new Date().toISOString(),
+            },
+        });
+
+        if (userError) {
+            // Se usuário já existe, apenas atualiza os metadados
+            if (userError.message.includes("already been registered")) {
+                console.log("User already exists, updating metadata");
+
+                // Buscar usuário existente
+                const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+                const existingUser = existingUsers?.users?.find(u => u.email === payerEmail);
+
+                if (existingUser) {
+                    await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+                        user_metadata: {
+                            ...existingUser.user_metadata,
+                            plan_type: planType,
+                            payment_id: paymentId,
+                            last_payment_date: new Date().toISOString(),
+                        },
+                    });
+                }
+            } else {
+                console.error("Error creating user:", userError);
+                return new Response("OK", { status: 200 });
+            }
+        }
+
+        // Registrar pagamento no banco
+        const userId = userData?.user?.id || null;
+
+        await supabaseAdmin.from("payments").upsert({
+            mercadopago_payment_id: paymentId.toString(),
+            mercadopago_preference_id: payment.preference_id,
+            payer_email: payerEmail,
+            plan_type: planType,
+            amount: payment.transaction_amount,
+            status: "approved",
+            user_id: userId,
+            user_created: true,
+            metadata: payment,
+        }, { onConflict: "mercadopago_payment_id" });
+
+        // Enviar email de boas-vindas com instruções
+        // O Supabase já envia um email quando criamos o usuário
+        // Mas podemos personalizar enviando via Edge Function adicional
+        console.log(`✅ User created successfully: ${payerEmail}`);
+        console.log(`📧 Default password: ${DEFAULT_PASSWORD}`);
+        console.log(`📋 Plan: ${planType}`);
+
+        return new Response("OK", { status: 200 });
+    } catch (error) {
+        console.error("Webhook error:", error);
+        // Sempre retorna 200 para o Mercado Pago não reenviar
+        return new Response("OK", { status: 200 });
+    }
+});
+
+function getPlanFromReference(ref: string): string {
+    try {
+        const data = JSON.parse(ref);
+        return data.plan || "semestral";
+    } catch {
+        return "semestral";
+    }
+}
