@@ -322,31 +322,34 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
           if (isCreativeBg) {
             stylePrompt = `[VISUAL IDENTITY SOURCE]
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
-INSTRUCTION: You must act as a Minimalist UI Designer (Google Material Design Expert).
+INSTRUCTION: You must act as a 3D Abstract Background Artist (Corporate Wallpaper Specialist).
 
-VARIATION MODE: ${variationIndex % 2 !== 0 ? 'LIGHT & CLEAN' : 'BOLD & FILLED'}
+VARIATION MODE: ${variationIndex % 2 !== 0 ? 'LIGHT & FLUID' : 'DEEP & IMMERSIVE'}
 
 CRITICAL RULES (VIOLATION = FAILURE):
-1. **NO TEXT**: NEVER write words, letters, or headlines. The background must be devoid of typography.
-2. **NO LOGOS**: DO NOT aim to purely copy the logo icon. Use its *geometry* (curves/angles/colors) to create an ABSTRACT background pattern.
-3. **FULL BLEED**: The background color must fill 100% of the canvas. No white borders, no framing, no letterbox.
+1. **NO TEXT**: NEVER write words. This is a WALLPAPER, not a slide.
+2. **NO ICONS/LOGOS**: Do NOT draw the brand logo. Use its COLORS only.
+3. **NO UI LAYOUTS**: Do NOT make boxes, frames, or "website sections". It must be a continuous abstract flow.
 
 ANALYSIS & EXECUTION:
 1. Extract the BRAND PALETTE from Image 2.
 ${variationIndex % 2 !== 0
-                ? `   - STYLE: LIGHT THEME. Use WHITE or very light grey as the main canvas.
-   - ACCENTS: Use brand colors for minimalist geometric shapes/lines on top of the white.`
-                : `   - STYLE: DARK/BOLD THEME. Fill the ENTIRE background with the Primary Brand Color (e.g. Solid Blue, Orange, Red).
-   - ACCENTS: Use slightly lighter/darker shades of the same color for depth.`}
+                ? `   - STYLE: WHITE/BRIGHT CANVAS.
+   - ELEMENTS: Create ELEGANT VISUAL FLUIDITY using the brand colors.
+   - SHAPES: Use "Vector Ribbons", "Soft Gradient Waves", or "Dynamic Curves" flowing across the white screen.
+   - REFERENCE: Think of "Abstract Corporate Vector Art" using Blue/Orange/Red lines on white.`
+                : `   - STYLE: DEEP BRAND COLOR IMMERSION.
+   - FILL: saturate the background with the DARKEST tone from the palette (e.g., Navy Blue or Deep Grey).
+   - ELEMENTS: Use SUBTLE GLOWS and TONAL CURVES of the secondary color (e.g., Orange light streaks) cutting through the dark.`}
 
-2. GEOMETRY (DECONSTRUCTED LOGO):
-   - Do NOT draw the logo symbol itself.
-   - Zoom in 500% on the logo shapes. Use BIG, ABSTRACT CURVES or SHARP DIAGONALS that cut across the screen.
-   - The shapes should look like "watermarks" or "architectural details", not icons.
+2. COMPOSITION:
+   - Create a High-End Background Texture.
+   - The subject (Image 1) will be placed in the foreground.
+   - The shapes should flow BEHIND the subject, creating depth without clutter.
 
-3. Keep it ULTRA-CLEAN. No visual noise. No small particles.
+3. KEYWORDS: Abstract, Flowing, Gradient Mesh, Vector Curves, Corporate Tech, Premium Wallpaper.
 
-RESULT: A pristine, professional corporate backdrop that supports the subject (Image 1) without distractions.`;
+RESULT: A stunning, abstract background image suitable for a high-end desktop wallpaper.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
