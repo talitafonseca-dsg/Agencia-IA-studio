@@ -322,19 +322,17 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
           if (isCreativeBg) {
             stylePrompt = `[VISUAL IDENTITY SOURCE]
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
-INSTRUCTION: You must act as a High-End Brand Designer (UI/UX & Corporate Identity Specialist).
+INSTRUCTION: You must act as a Senior Graphic Designer (Brand Identity Specialist).
 1. ANALYZE IMAGE 2: Extract the EXACT Brand Assets (Logo geometry, color palette, typography style).
-2. GEOMETRY IMPERATIVE: Use the SHAPES from the logo as MASSIVE 3D ARCHITECTURAL ELEMENTS.
-   - If the logo has curves, build a world of smooth, flowing 3D curves and spheres.
-   - If the logo is angular, use sharp, dynamic 3D polygons, glass shards, and technological grids.
-3. COMPOSITION: Create a 'Corporate Memphis' meets 'High-Tech Abstract' environment.
-   - The background should feel like a premium software landing page or a high-end banking ad.
-   - Use DEPTH, GRADIENTS (Glassmorphism), and NEON/GLOW effects matching the brand colors.
+2. COMPOSITION STYLE: Create a PROFESSIONAL CORPORATE GRAPHIC DESIGN background (Vector Art Style).
+   - DO NOT create a realistic 3D world or movie set.
+   - Use the logo's shapes as elegant framing elements, watermarks, or abstract vector overlays.
+   - Style: Clean, Modern, Minimalist, Corporate Memphis, Tech Startup.
+3. COLORS: STRICTLY use the brand palette from Image 2. Do not invent new colors.
 
-EXECUTION: Create a STUNNING HIGH-RESOLUTION CREATIVE BACKGROUND.
-If a person is included (Image 1), they should be 'hugging' or interacting with these giant 3D brand elements.
-The person should feel like the HERO of this brand universe.
-If no person is included, create an abstract masterpiece suitable for a desktop wallpaper.`;
+EXECUTION: Create a HIGH-END CORPORATE BACKGROUND.
+The subject (Image 1) should be composed professionally within this graphic layout, like a LinkedIn banner or a website hero section.
+The background must support the subject, not overwhelm them with giant 3D objects.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
