@@ -324,34 +324,35 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
 ROLE: You are a Senior Brand Designer at a top-tier agency.
 INPUT: IMAGE 2 is the CLIENT'S LOGO/BRAND ASSETS.
 
-YOUR MISSION:
-1. **ANALYZE IMAGE 2 DEEPLY**: Look at the logo. Identify:
-   - The exact HEX colors used (Primary and Secondary).
-   - The GEOMETRIC SHAPES in the logo (e.g., does it have a chevron? A curve? A circle? Sharp angles?).
-2. **DERIVE BACKGROUND SHAPES FROM THE LOGO**:
-   - DO NOT create generic shapes (like random circles or squares).
-   - ZOOM IN 500% on a specific part of the logo icon.
-   - USE THAT ZOOMED-IN SHAPE as a GIANT BACKGROUND ELEMENT.
-   - Example: If the logo has an arrow, create a MASSIVE arrow shape cutting across the background.
-   - Example: If the logo has a curved wave, create a GIANT WAVE shape spanning the entire canvas.
+STEP 1 - COLOR EXTRACTION (CRITICAL - DO NOT INVENT COLORS):
+- Look at Image 2 and identify the EXACT colors in the logo.
+- You MUST use ONLY these colors. Do NOT invent new colors like red, purple, or green if they are not in the logo.
+- Typical brand palettes: Navy Blue + Orange, or Teal + Orange. USE WHAT YOU SEE.
 
-BACKGROUND STYLE: ${variationIndex % 2 !== 0 ? 'LIGHT THEME (White Canvas)' : 'DARK THEME (Solid Brand Color Canvas)'}
+STEP 2 - SHAPE DERIVATION:
+- ZOOM IN 500% on a part of the logo icon.
+- USE THAT ZOOMED-IN SHAPE as a GIANT BACKGROUND ELEMENT.
+- The shapes should be DIRECTLY RECOGNIZABLE as "part of this brand's visual language".
 
-COMPOSITION RULES (STRICT):
-- USE ONLY 2 TO 3 GIANT SHAPES derived from the logo. Minimalism is key.
-- SHAPES MUST BE HUGE: They should span 30-50% of the canvas each.
+BACKGROUND TYPE FOR THIS VARIATION: ${variationIndex % 2 !== 0 ? '>>> LIGHT CANVAS <<<' : '>>> DARK/COLORED CANVAS <<<'}
+
 ${variationIndex % 2 !== 0
-                ? `- CANVAS: Pure White or very light grey.
-- SHAPES: Apply the brand colors (derived from Image 2) to the shapes.`
-                : `- CANVAS: Fill 100% with the Primary Brand Color (e.g., Deep Navy Blue, Dark Teal).
-- SHAPES: Use a SLIGHTLY LIGHTER or DARKER shade for depth. Add ONE small accent of the Secondary Color.`}
+                ? `LIGHT CANVAS EXECUTION:
+- Background: Pure WHITE (#FFFFFF) or very light grey.
+- Shapes: Apply the BRAND COLORS (from Image 2) to the giant shapes on top of the white.
+- The final image should feel "airy" and "clean".`
+                : `DARK/COLORED CANVAS EXECUTION:
+- Background: Fill 100% of the canvas with the PRIMARY BRAND COLOR (e.g., Deep Navy Blue #1a2b5c).
+- Shapes: Use SUBTLE TONAL VARIATIONS of the same color for depth (lighter/darker blue).
+- Add ONE small pop of the SECONDARY COLOR (e.g., Orange accent in a corner).
+- The final image should feel "bold" and "immersive".`}
 
-CRITICAL NEGATIVE CONSTRAINTS (FAILURE IF VIOLATED):
-1. **ZERO TEXT**: Do not write any words, letters, or numbers.
-2. **DO NOT REDRAW THE FULL LOGO**: Only use abstracted/zoomed parts of its geometry.
-3. **DO NOT USE GENERIC SHAPES**: No random blobs or circles that don't relate to the logo.
+CRITICAL CONSTRAINTS:
+1. **ZERO TEXT**: Do not write any words.
+2. **USE ONLY LOGO COLORS**: Do not invent new colors.
+3. **LOGO-DERIVED SHAPES ONLY**: No generic random shapes.
 
-GOAL: Create a professional, clean, premium background DIRECTLY INSPIRED BY the logo's geometry. The subject (Image 1) will be composited on top.`;
+GOAL: A professional background ${variationIndex % 2 !== 0 ? 'with a LIGHT/WHITE base' : 'with a DARK/COLORED base filled with brand color'}.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
