@@ -324,16 +324,26 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
 BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
 INSTRUCTION: You must act as a Minimalist UI Designer (Google Material Design Expert).
 
+VARIATION MODE: ${variationIndex % 2 !== 0 ? 'LIGHT & CLEAN' : 'BOLD & FILLED'}
+
 CRITICAL RULES (VIOLATION = FAILURE):
 1. **NO TEXT**: NEVER write words, letters, or headlines. The background must be devoid of typography.
 2. **NO LOGOS**: DO NOT aim to purely copy the logo icon. Use its *geometry* (curves/angles/colors) to create an ABSTRACT background pattern.
 3. **FULL BLEED**: The background color must fill 100% of the canvas. No white borders, no framing, no letterbox.
 
 ANALYSIS & EXECUTION:
-1. Extract the BRAND PALETTE from Image 2. Apply it in LARGE, SOLID FIELDS.
-2. Create a clean, geometric composition using 1 or 2 GIANT shapes derived from the logo.
-   - Example: If logo is a circle, use a massive smooth arc in the background.
-   - Example: If logo is a square, use a sharp diagonal block.
+1. Extract the BRAND PALETTE from Image 2.
+${variationIndex % 2 !== 0
+                ? `   - STYLE: LIGHT THEME. Use WHITE or very light grey as the main canvas.
+   - ACCENTS: Use brand colors for minimalist geometric shapes/lines on top of the white.`
+                : `   - STYLE: DARK/BOLD THEME. Fill the ENTIRE background with the Primary Brand Color (e.g. Solid Blue, Orange, Red).
+   - ACCENTS: Use slightly lighter/darker shades of the same color for depth.`}
+
+2. GEOMETRY (DECONSTRUCTED LOGO):
+   - Do NOT draw the logo symbol itself.
+   - Zoom in 500% on the logo shapes. Use BIG, ABSTRACT CURVES or SHARP DIAGONALS that cut across the screen.
+   - The shapes should look like "watermarks" or "architectural details", not icons.
+
 3. Keep it ULTRA-CLEAN. No visual noise. No small particles.
 
 RESULT: A pristine, professional corporate backdrop that supports the subject (Image 1) without distractions.`;
