@@ -71,6 +71,8 @@ export const translations = {
             results_title: 'RESULTADOS DA IA',
             new_creation: 'NOVA CRIAÇÃO',
             download_hd: 'BAIXAR ALTA DEFINIÇÃO',
+            download_preview: 'BAIXAR PRÉVIA (CLIENTE)',
+            preview_watermark: 'PRÉVIA - AGÊNCIA IA',
             curation_title: 'CURADORIA DE ESTILOS',
             curation_subtitle: 'Presets neurais de alta performance'
         },
@@ -153,6 +155,8 @@ export const translations = {
             results_title: 'AI RESULT',
             new_creation: 'NEW CREATION',
             download_hd: 'DOWNLOAD HIGH DEFINITION',
+            download_preview: 'DOWNLOAD PREVIEW (CLIENT)',
+            preview_watermark: 'PREVIEW - AGENCY IA',
             curation_title: 'STYLE CURATION',
             curation_subtitle: 'High performance neural presets'
         },

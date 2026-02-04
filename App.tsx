@@ -10,6 +10,7 @@ import {
   Edit3,
   Layout,
   X,
+  Eye,
   Type as TypeIcon,
   Layers,
   Sparkles,
@@ -543,6 +544,54 @@ const App: React.FC = () => {
     link.href = url;
     link.download = `agencia-ia-studio-v${variationIndex || 1}.png`;
     link.click();
+  };
+
+  const downloadPreview = (image: GeneratedImage) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.crossOrigin = "anonymous"; // Allow cross-origin if needed
+
+    img.onload = () => {
+      // 1. Resize for Low Res (Max 800px width)
+      const maxWidth = 800;
+      const scale = maxWidth / img.width;
+      const width = maxWidth;
+      const height = img.height * scale;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      if (!ctx) return;
+
+      // 2. Draw Image
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // 3. Add Watermark
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      ctx.rotate(-Math.PI / 4); // Diagonal
+      ctx.font = "bold 48px Inter, sans-serif";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText((t.main as any).preview_watermark || "PRÉVIA - AGÊNCIA IA", 0, 0);
+
+      // Repeat watermark for better coverage
+      ctx.font = "bold 24px Inter, sans-serif";
+      ctx.fillText((t.main as any).preview_watermark || "PRÉVIA", 0, -100);
+      ctx.fillText((t.main as any).preview_watermark || "PRÉVIA", 0, 100);
+      ctx.restore();
+
+      // 4. Export and Download
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // Low quality JPEG
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `PREVIA_CLIENTE_v${image.variation}.jpg`;
+      link.click();
+    };
+
+    img.src = image.url;
   };
 
   const isStudioMode = config.type === CreationType.STUDIO_PHOTO;
@@ -1491,6 +1540,7 @@ const App: React.FC = () => {
                               )}
                             </div>
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-all duration-300 backdrop-blur-[2px]">
+                              <button onClick={() => downloadPreview(variation)} className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-zinc-900 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Baixar Prévia (Cliente)"><Eye size={24} /></button>
                               <button onClick={() => downloadImageDirectly(variation.url, variation.variation)} className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-zinc-900 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Baixar PNG"><ImageIcon size={24} /></button>
                               <button onClick={() => setEditingImage(variation)} className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-zinc-900 shadow-xl hover:scale-110 active:scale-95 transition-all" title="Editar Texto"><Edit3 size={24} /></button>
 
@@ -1528,6 +1578,7 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    <button onClick={() => downloadPreview(selectedImage)} className="px-6 py-4 bg-white/5 text-white/60 border border-white/10 rounded-2xl text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-3 hover:bg-white/10 hover:text-white transition-all"><Eye size={18} /> PRÉVIA</button>
                     <button onClick={() => downloadImageDirectly(selectedImage.url, selectedImage.variation)} className="px-8 py-4 bg-white text-black rounded-2xl text-[12px] font-black uppercase tracking-[0.4em] flex items-center gap-4 hover:scale-105 transition-all"><Download size={22} /> PNG</button>
 
                   </div>
