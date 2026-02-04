@@ -320,36 +320,32 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
 
           let stylePrompt = "";
           if (isCreativeBg) {
-            stylePrompt = `[VISUAL IDENTITY SOURCE]
-BACKGROUND SOURCE: IMAGE 2 (Reference/Logo).
-INSTRUCTION: You must act as a 3D Abstract Background Artist (Corporate Wallpaper Specialist).
+            stylePrompt = `[BRAND IDENTITY CREATION TASK]
+ROLE: You are a Senior Brand Designer at a top-tier agency.
+INPUT: IMAGE 2 is the CLIENT'S LOGO/BRAND ASSETS.
 
-VARIATION MODE: ${variationIndex % 2 !== 0 ? 'LIGHT & FLUID' : 'DEEP & IMMERSIVE'}
+YOUR MISSION:
+1. ANALYZE the logo in Image 2: Extract the PRIMARY COLOR, SECONDARY COLOR, and the SHAPE LANGUAGE (is it rounded? angular? organic?).
+2. CREATE A BRAND BACKGROUND following the rules below.
 
-CRITICAL RULES (VIOLATION = FAILURE):
-1. **NO TEXT**: NEVER write words. This is a WALLPAPER, not a slide.
-2. **NO ICONS/LOGOS**: Do NOT draw the brand logo. Use its COLORS only.
-3. **NO UI LAYOUTS**: Do NOT make boxes, frames, or "website sections". It must be a continuous abstract flow.
+BACKGROUND STYLE: ${variationIndex % 2 !== 0 ? 'LIGHT THEME (White Canvas)' : 'DARK THEME (Solid Brand Color Canvas)'}
 
-ANALYSIS & EXECUTION:
-1. Extract the BRAND PALETTE from Image 2.
+COMPOSITION RULES (STRICT):
+- USE ONLY 2 TO 3 GIANT SHAPES. No more. Minimalism is key.
+- SHAPES MUST BE: LARGE ROUNDED ORGANIC FORMS. Think "soft blobs", "smooth curves", "rounded corners". NOT sharp diagonal lines.
+- SHAPES MUST BE HUGE: They should span 30-50% of the canvas each.
 ${variationIndex % 2 !== 0
-                ? `   - STYLE: WHITE/BRIGHT CANVAS.
-   - ELEMENTS: Create ELEGANT VISUAL FLUIDITY using the brand colors.
-   - SHAPES: Use "Vector Ribbons", "Soft Gradient Waves", or "Dynamic Curves" flowing across the white screen.
-   - REFERENCE: Think of "Abstract Corporate Vector Art" using Blue/Orange/Red lines on white.`
-                : `   - STYLE: DEEP BRAND COLOR IMMERSION.
-   - FILL: saturate the background with the DARKEST tone from the palette (e.g., Navy Blue or Deep Grey).
-   - ELEMENTS: Use SUBTLE GLOWS and TONAL CURVES of the secondary color (e.g., Orange light streaks) cutting through the dark.`}
+                ? `- CANVAS: Pure White or very light grey.
+- SHAPES: Apply the brand colors (e.g., Navy Blue blob, Orange accent blob) on TOP of the white.`
+                : `- CANVAS: Fill 100% with the Primary Brand Color (e.g., Deep Navy Blue, Dark Teal).
+- SHAPES: Use a SLIGHTLY LIGHTER or DARKER shade of the same color for the blobs to create subtle depth. Add ONE small accent of the Secondary Color (e.g., Orange corner).`}
 
-2. COMPOSITION:
-   - Create a High-End Background Texture.
-   - The subject (Image 1) will be placed in the foreground.
-   - The shapes should flow BEHIND the subject, creating depth without clutter.
+CRITICAL NEGATIVE CONSTRAINTS (FAILURE IF VIOLATED):
+1. **ZERO TEXT**: Do not write any words, letters, or numbers. NOT EVEN THE BRAND NAME.
+2. **ZERO ICONS/LOGOS**: Do not redraw the logo icon. Extract its COLORS and SHAPE VIBE only.
+3. **NO SHARP LINES**: Avoid angular, diagonal, "tech" lines. All edges must be soft and rounded.
 
-3. KEYWORDS: Abstract, Flowing, Gradient Mesh, Vector Curves, Corporate Tech, Premium Wallpaper.
-
-RESULT: A stunning, abstract background image suitable for a high-end desktop wallpaper.`;
+GOAL: Create a professional, clean, premium background that a Fortune 500 company would use in their keynote presentation. The subject (Image 1) will be composited on top.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
