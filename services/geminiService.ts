@@ -320,39 +320,32 @@ Preserve: face, skin tone, hair, facial features, age, ethnicity`;
 
           let stylePrompt = "";
           if (isCreativeBg) {
-            stylePrompt = `[BRAND IDENTITY CREATION TASK]
-ROLE: You are a Senior Brand Designer at a top-tier agency.
-INPUT: IMAGE 2 is the CLIENT'S LOGO/BRAND ASSETS.
+            stylePrompt = `[ABSTRACT WALLPAPER GENERATOR]
 
-STEP 1 - COLOR EXTRACTION (CRITICAL - DO NOT INVENT COLORS):
-- Look at Image 2 and identify the EXACT colors in the logo.
-- You MUST use ONLY these colors. Do NOT invent new colors like red, purple, or green if they are not in the logo.
-- Typical brand palettes: Navy Blue + Orange, or Teal + Orange. USE WHAT YOU SEE.
+=== FORBIDDEN - VIOLATION = INSTANT FAILURE ===
+1. NO TEXT. Zero words, letters, numbers, or brand names.
+2. NO LOGO. Do not draw the logo icon or spell any brand name.
+3. NO UI ELEMENTS. No boxes, frames, buttons, or presentation layouts.
+4. NO INVENTED COLORS. Use ONLY the colors you see in Image 2.
 
-STEP 2 - SHAPE DERIVATION:
-- ZOOM IN 500% on a part of the logo icon.
-- USE THAT ZOOMED-IN SHAPE as a GIANT BACKGROUND ELEMENT.
-- The shapes should be DIRECTLY RECOGNIZABLE as "part of this brand's visual language".
+=== YOUR TASK ===
+Create an ABSTRACT DESKTOP WALLPAPER inspired by the brand colors in Image 2.
 
-BACKGROUND TYPE FOR THIS VARIATION: ${variationIndex % 2 !== 0 ? '>>> LIGHT CANVAS <<<' : '>>> DARK/COLORED CANVAS <<<'}
-
+STYLE: ${variationIndex % 2 !== 0 ? 'LIGHT WALLPAPER' : 'DARK WALLPAPER'}
 ${variationIndex % 2 !== 0
-                ? `LIGHT CANVAS EXECUTION:
-- Background: Pure WHITE (#FFFFFF) or very light grey.
-- Shapes: Apply the BRAND COLORS (from Image 2) to the giant shapes on top of the white.
-- The final image should feel "airy" and "clean".`
-                : `DARK/COLORED CANVAS EXECUTION:
-- Background: Fill 100% of the canvas with the PRIMARY BRAND COLOR (e.g., Deep Navy Blue #1a2b5c).
-- Shapes: Use SUBTLE TONAL VARIATIONS of the same color for depth (lighter/darker blue).
-- Add ONE small pop of the SECONDARY COLOR (e.g., Orange accent in a corner).
-- The final image should feel "bold" and "immersive".`}
+                ? `- Background: Pure white or very light gray.
+- Shapes: 2-3 large flowing curves/ribbons using the brand colors (from Image 2).
+- Inspiration: Like a minimalist vector art wallpaper.`
+                : `- Background: Fill 100% with the primary dark color from Image 2 (e.g., navy blue).
+- Shapes: Subtle tonal curves (lighter/darker shades of the same blue).
+- Accents: One small pop of the secondary color (e.g., orange) in a corner.`}
 
-CRITICAL CONSTRAINTS:
-1. **ZERO TEXT**: Do not write any words.
-2. **USE ONLY LOGO COLORS**: Do not invent new colors.
-3. **LOGO-DERIVED SHAPES ONLY**: No generic random shapes.
+SHAPE STYLE:
+- Use LARGE, SMOOTH, FLOWING CURVES.
+- Think: abstract ribbons, waves, or rounded geometric forms.
+- Avoid: small details, grids, angular tech lines.
 
-GOAL: A professional background ${variationIndex % 2 !== 0 ? 'with a LIGHT/WHITE base' : 'with a DARK/COLORED base filled with brand color'}.`;
+The person from Image 1 will be placed on top of this background.`;
           } else {
             // Fallback for other modes (keeping legacy behavior to avoid regressions elsewhere)
             stylePrompt = `[VISUAL IDENTITY SOURCE]
