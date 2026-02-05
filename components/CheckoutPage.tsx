@@ -33,6 +33,14 @@ const PLANS: Record<string, PlanType> = {
         popular: true,
         savings: '37%',
     },
+    teste: {
+        id: 'teste',
+        name: 'Teste (R$ 1)',
+        price: 1,
+        period: '1 dia',
+        pricePerMonth: 1,
+        popular: false,
+    },
 };
 
 const BENEFITS = [
@@ -43,7 +51,7 @@ const BENEFITS = [
 ];
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
-    const [selectedPlan, setSelectedPlan] = useState<'semestral' | 'anual'>('anual');
+    const [selectedPlan, setSelectedPlan] = useState<'semestral' | 'anual' | 'teste'>('anual');
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);

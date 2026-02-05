@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { Resend } from "npm:resend@3.2.0";
 
 const MP_ACCESS_TOKEN = Deno.env.get("MP_ACCESS_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -159,8 +160,39 @@ Deno.serve(async (req: Request) => {
         }, { onConflict: "mercadopago_payment_id" });
 
         // Enviar email de boas-vindas com instruções
-        // O Supabase já envia um email quando criamos o usuário
-        // Mas podemos personalizar enviando via Edge Function adicional
+        try {
+            console.log("Sending welcome email via Resend...");
+            const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+            const { data: emailData, error: emailError } = await resend.emails.send({
+                from: "Agência IA Studio <onboarding@resend.dev>", // Você deve alterar isso para seu domínio verificado depois
+                to: [payerEmail],
+                subject: "Bem-vindo à Agência IA Studio! 🚀",
+                html: `
+                    <h1>Parabéns pela sua compra, ${payment.payer?.first_name || "Criador"}!</h1>
+                    <p>Seu acesso à <strong>Agência IA Studio</strong> foi liberado com sucesso.</p>
+                    <p>Aqui estão seus dados de acesso:</p>
+                    <ul>
+                        <li><strong>Email:</strong> ${payerEmail}</li>
+                        <li><strong>Senha Temporária:</strong> ${DEFAULT_PASSWORD}</li>
+                        <li><strong>Plano:</strong> ${planType}</li>
+                    </ul>
+                    <p>Acesse agora: <a href="https://agencia-ia-studio.vercel.app">https://agencia-ia-studio.vercel.app</a></p>
+                    <p>Recomendamos que você altere sua senha após o primeiro login.</p>
+                    <br>
+                    <p>Atenciosamente,<br>Equipe Agência IA Studio</p>
+                `,
+            });
+
+            if (emailError) {
+                console.error("Error sending email:", emailError);
+            } else {
+                console.log("Welcome email sent:", emailData);
+            }
+        } catch (err) {
+            console.error("Unexpected error sending email:", err);
+        }
+
         console.log(`✅ User created successfully: ${payerEmail}`);
         console.log(`📧 Default password: ${DEFAULT_PASSWORD}`);
         console.log(`📋 Plan: ${planType}`);

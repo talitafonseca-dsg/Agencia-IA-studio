@@ -30,6 +30,12 @@ const PLANS: Record<string, PlanInfo> = {
         price: 197,
         duration: "12 meses",
     },
+    teste: {
+        id: "teste",
+        title: "Plano de Teste - Agência IA Studio",
+        price: 1,
+        duration: "1 dia",
+    },
 };
 
 Deno.serve(async (req: Request) => {
@@ -50,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
         if (!plan || !PLANS[plan]) {
             return new Response(
-                JSON.stringify({ error: "Plano inválido. Use 'semestral' ou 'anual'" }),
+                JSON.stringify({ error: "Plano inválido. Use 'semestral', 'anual' ou 'teste'" }),
                 { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
