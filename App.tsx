@@ -93,6 +93,7 @@ const App: React.FC = () => {
   const [productImage, setProductImage] = useState<string | null>(null);
   const [customModelImage, setCustomModelImage] = useState<string | null>(null);
   const [stickerImage, setStickerImage] = useState<string | null>(null);
+  const [mockupReferenceImage, setMockupReferenceImage] = useState<string | null>(null);
   const [isEditableMode, setIsEditableMode] = useState<boolean>(false);
 
   // Text Editor State
@@ -168,6 +169,7 @@ const App: React.FC = () => {
     setProductImage(null);
     setCustomModelImage(null);
     setStickerImage(null);
+    setMockupReferenceImage(null);
     setResults([]);
     setError(null);
     setIsQuotaError(false);
@@ -249,7 +251,7 @@ const App: React.FC = () => {
     });
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'subject' | 'reference' | 'product' | 'sticker' | 'customModel') => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'subject' | 'reference' | 'product' | 'sticker' | 'customModel' | 'mockupReference') => {
     const file = e.target.files?.[0];
     if (file) {
       try {
@@ -263,6 +265,7 @@ const App: React.FC = () => {
         if (field === 'product') setProductImage(pngDataUrl);
         if (field === 'customModel') setCustomModelImage(pngDataUrl);
         if (field === 'sticker') setStickerImage(pngDataUrl);
+        if (field === 'mockupReference') setMockupReferenceImage(pngDataUrl);
         setError(null);
         setIsQuotaError(false);
       } catch (err) {
@@ -303,7 +306,7 @@ const App: React.FC = () => {
         ...config,
         designCount: config.designCount,
         isEditableMode
-      }, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined);
+      }, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined, mockupReferenceImage);
 
       // Inject Layout Mode Metadata
       const resultsWithMeta = generated.map(img => ({
@@ -750,6 +753,48 @@ const App: React.FC = () => {
                 ))
               )}
             </div>
+
+            {/* MOCKUP REFERENCE IMAGE UPLOAD */}
+            {isMockupMode && (
+              <div className="mt-4 p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <ImageIcon size={16} className="text-amber-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                    Referência do Objeto (Opcional)
+                  </span>
+                </div>
+                <p className="text-[9px] text-white/40 mb-3">
+                  Envie uma foto do veículo/objeto exato que deseja usar. A IA copiará o modelo visual.
+                </p>
+
+                {mockupReferenceImage ? (
+                  <div className="relative">
+                    <img
+                      src={mockupReferenceImage}
+                      alt="Referência"
+                      className="w-full h-24 object-contain rounded-xl border border-amber-500/30 bg-black/30"
+                    />
+                    <button
+                      onClick={() => setMockupReferenceImage(null)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-400 transition-all"
+                    >
+                      <X size={12} className="text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-500/30 rounded-xl cursor-pointer hover:bg-amber-500/10 transition-all">
+                    <Upload size={20} className="text-amber-400 mb-2" />
+                    <span className="text-[9px] text-amber-400 font-bold">ENVIAR FOTO DO VEÍCULO/OBJETO</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, 'mockupReference')}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
           </section>
 
           <section className={`space-y-6 p-4 rounded-3xl border border-transparent transition-all ${activePulseStep === 3 ? 'animate-container-flash' : ''}`}>

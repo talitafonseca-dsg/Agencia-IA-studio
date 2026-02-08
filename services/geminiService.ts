@@ -8,7 +8,8 @@ export const generateStudioCreative = async (
   productImage?: string | null,
   stickerImage?: string | null,
   customModelImage?: string | null,
-  apiKey?: string
+  apiKey?: string,
+  mockupReferenceImage?: string | null
 ): Promise<GeneratedImage[]> => {
   const variations: GeneratedImage[] = [];
 
@@ -17,13 +18,13 @@ export const generateStudioCreative = async (
     const variationId = Math.random().toString(36).substr(2, 9);
 
     try {
-      const variationPrompt = constructPrompt(config, v, customModelImage, !!stickerImage, !!productImage, !!referenceImage);
+      const variationPrompt = constructPrompt(config, v, customModelImage, !!stickerImage, !!productImage, !!referenceImage, !!mockupReferenceImage);
 
       // OPTIMIZATION: Removed PPT Slide logic. All creative backgrounds can include the subject if provided.
       const variationPrimary = primaryImage;
       const variationCustomModel = customModelImage;
 
-      const imageUrl = await callImageApi(variationPrompt, config.aspectRatio, variationPrimary, referenceImage, productImage, stickerImage, variationCustomModel, config.studioStyle, config.mascotStyle, config.mockupStyle, config.style, config.socialClass, !!config.isEditableMode, v, config.type, apiKey);
+      const imageUrl = await callImageApi(variationPrompt, config.aspectRatio, variationPrimary, referenceImage, productImage, stickerImage, variationCustomModel, config.studioStyle, config.mascotStyle, config.mockupStyle, config.style, config.socialClass, !!config.isEditableMode, v, config.type, apiKey, mockupReferenceImage);
       return imageUrl ? { id: variationId, url: imageUrl, originalUrl: imageUrl, variation: v } : null;
     } catch (error: any) {
       console.error(`Variation ${v} failed:`, error);
@@ -70,7 +71,8 @@ const callImageApi = async (
   isEditing: boolean = false,
   variationIndex: number = 1,
   type: string = 'Studio Photo',
-  apiKey?: string
+  apiKey?: string,
+  mockupReferenceImage?: string | null
 ) => {
   try {
     const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY || '' });
@@ -123,6 +125,24 @@ const callImageApi = async (
              >>> DO NOT copy any text from this image.`
           });
           parts.push({ inlineData: ref });
+        }
+      }
+
+      // MOCKUP OBJECT/VEHICLE REFERENCE IMAGE
+      if (mockupReferenceImage) {
+        const objRef = extractBase64(mockupReferenceImage);
+        if (objRef) {
+          parts.push({
+            text: `[IMAGE 3: VEHICLE/OBJECT REFERENCE - COPY THIS EXACT MODEL]
+             ⚠️⚠️⚠️ CRITICAL: THIS IS THE EXACT VEHICLE/OBJECT TO USE ⚠️⚠️⚠️
+             >>> YOU MUST USE THIS EXACT VEHICLE MODEL IN THE GENERATED IMAGE.
+             >>> COPY THE EXACT: Shape, Proportions, Front Design, Grille, Headlights, Body Style.
+             >>> THIS IMAGE SHOWS A BRAZILIAN VEHICLE - DO NOT SUBSTITUTE WITH EUROPEAN/AMERICAN VERSIONS.
+             >>> THE FINAL IMAGE MUST SHOW THIS EXACT VEHICLE, NOT A SIMILAR ONE.
+             >>> Apply the design (Image 1) onto THIS vehicle (Image 3).
+             >>> IGNORE any preset vehicle instructions - USE THIS REFERENCE.`
+          });
+          parts.push({ inlineData: objRef });
         }
       }
     } else if (hasCustomModelAndProduct) {
@@ -833,7 +853,7 @@ const getStyleBackground = (style: VisualStyle, variationIndex: number, hasProdu
   return backgrounds[Math.max(0, index)];
 };
 
-const constructPrompt = (config: GenerationConfig, variationIndex: number, customModelImage?: string | null, hasSticker: boolean = false, hasProduct: boolean = false, hasReference: boolean = false): string => {
+const constructPrompt = (config: GenerationConfig, variationIndex: number, customModelImage?: string | null, hasSticker: boolean = false, hasProduct: boolean = false, hasReference: boolean = false, hasMockupReference: boolean = false): string => {
   const { type, style, studioStyle, mascotStyle, productDescription, aspectRatio, copyText, ctaText, useAiAvatar, isEditableMode, useBoxLayout } = config;
 
 
@@ -873,7 +893,57 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     2. LIGHT/WHITE ART DETECTED -> FORCE BLACK T-SHIRT.
     3. DEFAULT SAFETY -> WHITE T-SHIRT.` : ''}
     ${mockupStyle === MockupStyle.BRANDING ? 'CONTEXT: Corporate Identity. SCENE: Elegant desk or clean surface. ITEMS: Business cards, envelope, letterhead. COMPOSITION: Isometric or Overhead flatlay. DEPTH: Shallow depth of field.' : ''}
-    ${mockupStyle === MockupStyle.VEHICLE ? 'CONTEXT: Commercial Fleet. SCENE: Outdoors, sunny day. ITEM: Delivery Van or Sedan. ACTION: Apply the design as a full vehicle wrap or decal. RESPECT the vehicle geometry and reflections.' : ''}
+    ${mockupStyle === MockupStyle.VEHICLE ? `CONTEXT: Vehicle Wrap / Fleet Branding.
+    
+    === BRAZILIAN SETTING (MANDATORY) ===
+    SCENE: Brazilian urban environment. Choose from:
+    - São Paulo downtown streets with typical Brazilian architecture
+    - Rio de Janeiro streets with palm trees
+    - Brazilian gas station (Petrobras/Ipiranga style)
+    - Brazilian neighborhood with colorful houses
+    - Industrial area with Brazilian company signs
+    DO NOT USE: European streets, American suburbs, Asian cities.
+    
+    === VEHICLE MODEL COMPLIANCE (ABSOLUTE PRIORITY) ===
+    ⚠️⚠️⚠️ CRITICAL: READ THE USER BRIEFING FOR THE EXACT VEHICLE MODEL ⚠️⚠️⚠️
+    
+    === FIAT FIORINO (BRAZIL) - MUST USE THIS EXACT DESIGN ===
+    ALTERNATIVE NAMES: "Fiat Qubo Brazil", "Fiorino Fire", "Fiorino Working"
+    
+    VISUAL IDENTITY (MEMORIZE THIS):
+    - FRONT: Completely FLAT front fascia. Square. Angular. NOT curved.
+    - HEADLIGHTS: RECTANGULAR lights flush with grille (NOT separate round or organic shapes)
+    - GRILLE: Single horizontal chrome bar across the front
+    - BUMPER: BLACK plastic, no body color paint
+    - OVERALL: Looks like a small SQUARE BOX on wheels
+    - YEAR: 2014-2025 Brazilian production
+    
+    ❌ FORBIDDEN VEHICLES - DO NOT USE THESE:
+    - Fiat Doblò (WRONG - too big, rounded front)
+    - Fiat Scudo (WRONG - too big)
+    - Fiat Ducato (WRONG - too big)
+    - Renault Kangoo (WRONG - different brand)
+    - Peugeot Partner (WRONG - different brand)
+    - Citroën Berlingo (WRONG - different brand)
+    - ANY van with ROUNDED front (WRONG)
+    - ANY van with SEPARATE round headlights (WRONG)
+    
+    IF YOU CANNOT GENERATE THE EXACT FIORINO BRASILEIRA:
+    Generate a GENERIC SMALL WHITE CARGO VAN with:
+    - FLAT squared front
+    - Simple rectangular headlights
+    - Black bumper
+    - Very compact size
+    - No brand emblems visible
+    
+    OTHER BRAZILIAN VEHICLES:
+    - "Strada" = Fiat Strada (compact pickup, curved bed sides)
+    - "Saveiro" = VW Saveiro (small pickup, angular design)
+    - "Uno" = Fiat Uno (small boxy hatchback)
+    
+    ACTION: Apply the design as a full vehicle wrap. RESPECT geometry and reflections.
+    LIGHTING: Professional automotive photography, sunny day.
+    QUALITY: Brazilian car dealership advertising level.` : ''}
     ${mockupStyle === MockupStyle.MUG ? 'CONTEXT: Product shot. SCENE: Cozy coffee table or kitchen counter. ITEM: Ceramic Mug. ACTION: curve the design around the mug cylinder. Add ceramic gloss reflection over the design.' : ''}
     ${mockupStyle === MockupStyle.PACKAGING ? 'CONTEXT: Retail. SCENE: Studio shelf or podium. ITEM: Box, Bottle or Pouch. ACTION: Apply design to the packaging surface. DIMENSION: 3D render quality.' : ''}
     ${mockupStyle === MockupStyle.SIGNAGE ? 'CONTEXT: Exterior Architecture. SCENE: Storefront or Building Facade. ITEM: 3D Sign or Lightbox. ACTION: Turn the design into a physical sign. Add environmental lighting and shadows.' : ''}
@@ -899,8 +969,25 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     4. NO HALLUCINATION: Do not change the text of the design.
     5. INTEGRITY: Include the ENTIRE art. Do not crop the text around the main element.
 
-    MANDATORY USER INSTRUCTIONS (MUST OBEY):
-    ${productDescription ? `>>> USER BRIEFING: "${productDescription}" <<< \nINSTRUCTION: You must strictly follow the user briefing above. If it specifies a color, use it. If it specifies a mood, create it.` : 'No specific extra instructions.'}
+    MANDATORY USER INSTRUCTIONS (ABSOLUTE PRIORITY - OVERRIDE ALL PRESETS):
+    ${productDescription ? `>>> USER BRIEFING: "${productDescription}" <<<
+    
+    ⚠️ CRITICAL: THE USER BRIEFING ABOVE IS THE FINAL AUTHORITY.
+    
+    IF THE BRIEFING MENTIONS A VEHICLE MODEL:
+    - "Fiorino" = USE FIAT FIORINO CARGO (BRAZILIAN VERSION 2020+)
+    - "Strada" = USE FIAT STRADA (BRAZILIAN PICKUP)
+    - "Saveiro" = USE VW SAVEIRO
+    - "Uno" = USE FIAT UNO (BRAZILIAN)
+    - Any vehicle name + year = USE THAT EXACT MODEL AND YEAR
+    - "brasileira" / "brasileiro" / "Brazil" = USE BRAZILIAN MARKET VERSION
+    
+    IF THE BRIEFING MENTIONS COLOR: Apply that exact color.
+    IF THE BRIEFING MENTIONS YEAR: Use that model year.
+    IF THE BRIEFING MENTIONS "cargo" / "furgão": Use the cargo/van variant.
+    
+    DO NOT SUBSTITUTE WITH A SIMILAR VEHICLE FROM ANOTHER MARKET.
+    THE BRAZILIAN MARKET HAS UNIQUE VEHICLE DESIGNS - USE THEM.` : 'No specific extra instructions.'}
     `;
 
     return baseMockupPrompt;
@@ -1025,11 +1112,23 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
        >>> CRITICAL TASK: ${style === VisualStyle.UGC_INSTAGRAM ? 'CREATE AN AUTHENTIC USER PHOTO (UGC)' : 'CREATE A PRODUCT ADVERTISEMENT PHOTO'} <<<
        The person from Image 1 MUST be shown HOLDING the product from Image 2.
        
-       === IDENTITY \u0026 COMPOSITION RULES ===
+       === IDENTITY & COMPOSITION RULES ===
        
-       ZONE A: THE \"KEEP ZONE\" (HEAD ONLY):
-       - HEAD AND FACE: 100% preservation.
-       - NECK: Preserve natural transition.
+       ZONE A: THE "KEEP ZONE" (HEAD & FACE - SACRED):
+       ⚠️ CRITICAL FACIAL PRESERVATION PROTOCOL:
+       - FACE SHAPE: Keep the EXACT bone structure (jaw, cheekbones, forehead).
+       - EYES: Same shape, size, spacing, color. DO NOT make them bigger/rounder.
+       - NOSE: Preserve the EXACT nose shape and size. No refinement.
+       - MOUTH/LIPS: Same thickness, shape, and smile style.
+       - SKIN TONE: EXACT match - no whitening, no darkening.
+       - HAIR: Same color, texture, style, length.
+       - DISTINCTIVE FEATURES: Keep moles, freckles, wrinkles, scars.
+       - HEAD PROPORTIONS: Do not resize or reshape the head.
+       
+       THE PERSON IN THE OUTPUT MUST BE INSTANTLY RECOGNIZABLE as the person from Image 1.
+       If you change any facial feature, THE ENTIRE GENERATION IS INVALID.
+       
+       NECK: Preserve natural transition.
        
        ZONE B: THE \"DISCARD ZONE\" (DELETE COMPLETELY):
        - ORIGINAL BODY: DELETE IT. Do not paint over it. REMOVE IT.
@@ -1079,15 +1178,30 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
        *** PROFESSIONAL STUDIO PHOTOGRAPHY MODE (CUSTOM SUBJECT) ***
        ================================================================================
        
-       SUBJECT INTEGRATION (CRITICAL):
+       === CRITICAL FACIAL IDENTITY PRESERVATION ===
+       ⚠️ THE FACE IS SACRED. DO NOT MODIFY IT.
+       
+       MANDATORY LIKENESS RULES:
+       1. BONE STRUCTURE: Keep the EXACT face shape (jaw, cheekbones, chin, forehead).
+       2. EYES: Preserve shape, size, spacing, color. NO generic "model eyes".
+       3. NOSE: Keep the EXACT nose - no refinement, no reshaping.
+       4. MOUTH/LIPS: Same thickness, same smile style.
+       5. SKIN TONE: EXACT color match. NO whitening. NO alteration.
+       6. HAIR: Same color, texture, style, volume, length.
+       7. AGE: Do not make the person look younger or older.
+       8. DISTINCTIVE FEATURES: Keep ALL moles, freckles, dimples, wrinkles.
+       9. HEAD PROPORTIONS: Do not resize or reshape the head/face ratio.
+       
+       LIKENESS TEST: Someone who knows this person should INSTANTLY recognize them.
+       If the face looks like a "similar person" instead of the EXACT person, you FAILED.
+       
+       SUBJECT INTEGRATION:
        1. IDENTITY PRESERVATION: KEEP THE FACE 100% IDENTICAL to the uploaded photo.
-       2. LIGHTING & SKIN: Maintain realistic skin texture (commercial retouch).
+       2. LIGHTING & SKIN: Maintain realistic skin texture (commercial retouch) but NEVER alter structure.
        `;
     }
 
     prompt += `
-     ART DIRECTION & QUALITY:
-     - APPLY THE SAME HIGH-END FINISH as the instruction below.
      ART DIRECTION & QUALITY:
      - APPLY THE SAME HIGH-END FINISH as the instruction below.
      - LIGHTING: ${style === VisualStyle.UGC_INSTAGRAM ? 'NATURAL LIGHTING (Window/Daylight)' : 'Re-light the subject to match the new background with dramatic effect'}.
@@ -1126,29 +1240,30 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
       - BACKGROUND MUST MATCH THE CONTEXT: ${config.customEnvironment || config.ugcEnvironment}.
       - QUALITY: Good smartphone camera quality (Authentic), NOT Cinema 8K.
       `}
-      `)}
+      `)
+      }
      
-     NEGATIVE PROMPT (QUALITY CONTROL):
-     - NO FLOATING PRODUCTS. The subject MUST hold it.
-     - NO "CUTOUT" LOOK. The subject must feel blended into the scene.
-     - NO TEXT OBSTRUCTION (Dont cover face).
-     - NO BORING PLAIN BACKGROUNDS. Always add design interest.
-     ${style === VisualStyle.UGC_INSTAGRAM ? '- NEGATIVE PROMPT: Office, Corporate, Meeting Room, Studio Lighting, Professional Ad, Suit, Tie, Blazer.' : ''}
-     `;
+     NEGATIVE PROMPT(QUALITY CONTROL):
+- NO FLOATING PRODUCTS.The subject MUST hold it.
+     - NO "CUTOUT" LOOK.The subject must feel blended into the scene.
+     - NO TEXT OBSTRUCTION(Dont cover face).
+     - NO BORING PLAIN BACKGROUNDS.Always add design interest.
+  ${style === VisualStyle.UGC_INSTAGRAM ? '- NEGATIVE PROMPT: Office, Corporate, Meeting Room, Studio Lighting, Professional Ad, Suit, Tie, Blazer.' : ''}
+`;
   } else if (isStudioOrUGC) {
     // PURE PHOTOGRAPHY PATH (NO SHAPES, NO TEXT BOXES)
     // Check if it's specifically STUDIO_PHOTO to apply studioStyle presets
     const isStudioPhoto = type === CreationType.STUDIO_PHOTO;
 
     prompt += `
-  MANDATORY PHOTOGRAPHY RULES (CRITICAL):
-  - TYPE: PURE PHOTOGRAPHY (Realism Focus).
+  MANDATORY PHOTOGRAPHY RULES(CRITICAL):
+- TYPE: PURE PHOTOGRAPHY(Realism Focus).
   - NO GRAPHICS: DO NOT generate abstract "shapes", "boxes", "text containers", "buttons", "icons". 
-  - NO DESIGN ELEMENTS: This is a PHOTO, not a graphic design. NO 3D shapes, NO floating elements.
-  - COMPOSITION: Professional Photographic framing. Clean depth of field.
-  - BACKGROUND: Realistic environment matching the description. NO ARTIFICIAL OVERLAYS.
-  - HIERARCHY: Focus 100% on the Subject (Person) and the Environment.
-  
+  - NO DESIGN ELEMENTS: This is a PHOTO, not a graphic design.NO 3D shapes, NO floating elements.
+  - COMPOSITION: Professional Photographic framing.Clean depth of field.
+  - BACKGROUND: Realistic environment matching the description.NO ARTIFICIAL OVERLAYS.
+  - HIERARCHY: Focus 100 % on the Subject(Person) and the Environment.
+
   ${hasReference ? `
   === STYLE REFERENCE ACTIVE (PRESERVE IDENTITY!) ===
   A style reference image has been provided. IGNORE all preset styles.
@@ -1172,23 +1287,24 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   
   IMPORTANT: The above preset defines the EXACT style, background, and lighting for this photo.
   Follow these instructions PRECISELY. Do not deviate from the preset.
-  ` : '')}
+  ` : '')
+      }
   
   HUMAN ELEMENT RULES:
-  - RAW PHOTOGRAPHY: Real Brazilian person, Canon 5D quality. NO AI/3D LOOK.
+- RAW PHOTOGRAPHY: Real Brazilian person, Canon 5D quality.NO AI / 3D LOOK.
   - SKIN: Highly detailed, natural texture, pores visible.
   - LIGHTING: Cinematic Studio Lighting.
-  - FRAMING: AMERICAN SHOT / MEDIUM SHOT. NEVER FULL BODY.
-  - ANATOMY: CORRECT human body proportions. Normal head-to-body ratio (1:7 or 1:8).
-  - NO DISTORTION: Head size must be proportional to body. NO oversized or undersized heads.
+  - FRAMING: MEDIUM CLOSE - UP SHOT(BUST SHOT - from chest up).NEVER AMERICAN SHOT or FULL BODY.The subject should fill most of the frame.
+  - ANATOMY: CORRECT human body proportions.Normal head - to - body ratio(1: 7 or 1: 8).
+  - NO DISTORTION: Head size must be proportional to body.NO oversized or undersized heads.
   - NATURAL POSE: Realistic body positioning, no awkward or impossible angles.
   
   === ABSOLUTELY FORBIDDEN FOR PHOTOS ===
   - NO floating app icons, emojis, or social media icons
-  - NO geometric shapes (spheres, cubes, circles)
-  - NO text overlays or buttons
-  - NO graphic design elements of ANY kind
-  - This must look like a REAL PHOTOGRAPH from a professional camera`;
+    - NO geometric shapes(spheres, cubes, circles)
+      - NO text overlays or buttons
+        - NO graphic design elements of ANY kind
+          - This must look like a REAL PHOTOGRAPH from a professional camera`;
   }
 
   /* 
@@ -1201,22 +1317,22 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   if (isDesignReferenceMode) {
     // REPLICATING STUDIO LOGIC + POST-PRODUCTION TEXT
     prompt += `
-  MANDATORY PHOTOGRAPHY RULES (PHASE 1):
-  - TYPE: PURE PHOTOGRAPHY (Realism Focus).
+  MANDATORY PHOTOGRAPHY RULES(PHASE 1):
+- TYPE: PURE PHOTOGRAPHY(Realism Focus).
   - NO 3D GRAPHICS: DO NOT generate abstract 3D shapes, spheres, cubes during photography phase.
-  - COMPOSITION: Professional Photographic framing. Clean depth of field.
+  - COMPOSITION: Professional Photographic framing.Clean depth of field.
   - CRITICAL: CHANGE THE CAMERA ANGLE slightly from the reference image.
-  - RE-FRAME: Do not copy the reference pixel-for-pixel. Create a NEW view of the same scene.
+  - RE - FRAME: Do not copy the reference pixel -for-pixel.Create a NEW view of the same scene.
   - BACKGROUND: Realistic environment matching the reference style.
-  - HIERARCHY: Focus 100% on the Subject (Person) from Image 1.
-  
-  === STYLE REFERENCE ACTIVE (PRESERVE IDENTITY!) ===
-  A style reference image has been provided. IGNORE all preset styles.
+  - HIERARCHY: Focus 100 % on the Subject(Person) from Image 1.
+
+  === STYLE REFERENCE ACTIVE(PRESERVE IDENTITY!) ===
+    A style reference image has been provided.IGNORE all preset styles.
   
   === STYLE REFERENCE ACTIVE ===
-  A style reference image has been provided. IGNORE all preset styles.
+  A style reference image has been provided.IGNORE all preset styles.
 
-  ⚠️ IDENTITY RULE (CRITICAL):
+  ⚠️ IDENTITY RULE(CRITICAL):
   ${customModelImage ? `
   - CUSTOM MODEL DETECTED (Image 1).
   - PRESERVE: Face, identity, skin tone, hair (100% Match).
@@ -1228,44 +1344,44 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   - The goal is to reference the STYLE, not the PERSON.
   `}
   
-  === BACKGROUND RE-CREATION PROTOCOL (NUCLEAR OPTION) ===
+  === BACKGROUND RE - CREATION PROTOCOL(NUCLEAR OPTION) ===
   ⚠️ SECURITY ALERT: The Reference Image contains COPYRIGHTED WATERMARKS and TEXT.
   
   YOU ARE STRICTLY FORBIDDEN FROM COPYING PIXELS FROM THE REFERENCE BACKGROUND.
 
-  Instead, you must ANALYZE and RE-DRAW the background from scratch:
-  1. ANALYZE the "Vibe" (e.g., Blue Organic Shapes, Yellow Sunburst, Abstract Tech).
+  Instead, you must ANALYZE and RE - DRAW the background from scratch:
+1. ANALYZE the "Vibe"(e.g., Blue Organic Shapes, Yellow Sunburst, Abstract Tech).
   2. GENERATE A NEW 3D BACKGROUND matching that vibe.
   3. DO NOT INCLUDE any text, logos, or watermarks from the reference.
   4. CLEAN PLATE RULE: The background must be pristine, like a stock photo BEFORE text was added.
 
-  EXTRACT FROM REFERENCE (STYLE ONLY - DO NOT COPY PIXELS):
-  - Color Palette: Extract the colors.
+  EXTRACT FROM REFERENCE(STYLE ONLY - DO NOT COPY PIXELS):
+- Color Palette: Extract the colors.
   - Lighting: Replication the lighting direction.
-  - Shapes: Re-create similar 3D shapes (e.g., if there are blobs, generate NEW blobs).
-  - Composition: Use the same layout structure.
+  - Shapes: Re - create similar 3D shapes(e.g., if there are blobs, generate NEW blobs).
+- Composition: Use the same layout structure.
 
   Think: "I need to rebuild this scene in 3D software. I will use the same colors and lighting, but I will make my own shapes. I will explicitly leave out the text and watermarks."
 
-  === COMPOSITION INTEGRATION RULES (CRITICAL) ===
-  - DEPTH: The subject must separate from the background but feel IMMERSED in it.
+    === COMPOSITION INTEGRATION RULES(CRITICAL) ===
+      - DEPTH: The subject must separate from the background but feel IMMERSED in it.
   - LIGHTING INTERACTION: The background light sources must cast realistic rim lights on the subject.
-  - ELEMENT INTERACTION: Background shapes/elements should slightly overlap or depth-cue the subject.
-  - NO FLAT COLLAGE: Do not just paste the subject on top. Integrate them into the 3D space.
-  - VISUAL FLOW: The lighting should lead the eye to the text area (but keep it empty for now).
-  - TEXT SPACE: Analyze where the text is in the reference. Leave that space EMPTY or with low contrast for the overlay.
+  - ELEMENT INTERACTION: Background shapes / elements should slightly overlap or depth - cue the subject.
+  - NO FLAT COLLAGE: Do not just paste the subject on top.Integrate them into the 3D space.
+  - VISUAL FLOW: The lighting should lead the eye to the text area(but keep it empty for now).
+  - TEXT SPACE: Analyze where the text is in the reference.Leave that space EMPTY or with low contrast for the overlay.
   
   HUMAN ELEMENT RULES:
-  - RAW PHOTOGRAPHY: Real Brazilian person, Canon 5D quality.
+- RAW PHOTOGRAPHY: Real Brazilian person, Canon 5D quality.
   - SKIN: Highly detailed, natural texture, pores visible.
   - LIGHTING: Cinematic Studio Lighting matching reference.
-  - FRAMING: AMERICAN SHOT / MEDIUM SHOT. NEVER FULL BODY.
-  - ANATOMY: CORRECT human body proportions. Normal head-to-body ratio (1:7 or 1:8).
-  - NO DISTORTION: Head size must be proportional to body. NO oversized or undersized heads.
+  - FRAMING: MEDIUM CLOSE - UP SHOT(BUST SHOT - from chest up).NEVER AMERICAN SHOT or FULL BODY.The subject should fill most of the frame.
+  - ANATOMY: CORRECT human body proportions.Normal head - to - body ratio(1: 7 or 1: 8).
+  - NO DISTORTION: Head size must be proportional to body.NO oversized or undersized heads.
   
-  === PHASE 2: POST-PRODUCTION (DIGITAL OVERLAY) ===
+  === PHASE 2: POST - PRODUCTION(DIGITAL OVERLAY) ===
   AFTER photographing the subject, apply the text overlay digitally:
-  - Add the text: "${config.copyText || ''}"
+- Add the text: "${config.copyText || ''}"
   ${type === CreationType.YOUTUBE_THUMB ? `
   - Font Style: Bold, Modern Sans-Serif (YouTube Style - High CTR)
   - Color: High Contrast (Yellow, Red, or White with Stroke)
@@ -1274,41 +1390,41 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   - LOOK AT IMAGE 2: Is it Serif? Sans-Serif? Handwritten? COPY THAT STYLE.
   - Color: Extract dominant text color from Image 2.
   `}
-  - Position: Natural composition, legible.
+- Position: Natural composition, legible.
   
-  === TEXT SOURCE RULES (CRITICAL) ===
+  === TEXT SOURCE RULES(CRITICAL) ===
   ⚠️ DO NOT READ TEXT FROM REFERENCE IMAGE ⚠️
-  - The text in Image 2 is just a placeholder example.
+- The text in Image 2 is just a placeholder example.
   - IGNORE keywords like "GRÁTIS", "FREE", "KIT" found in Image 2.
   - USE ONLY THE TEXT PROVIDED IN THIS PROMPT.
   `;
   } else if (!isStudioOrUGC) {
     // GRAPHIC DESIGN / ILLUSTRATION PATH (Default - when no reference is provided)
     prompt += `
-  === PREMIUM COMMERCIAL DESIGN ENGINE (AVATAR/AI GENERATED) ===
-  
-  MANDATORY DESIGN LANGUAGE:
-  - COMPOSITION: Dynamic commercial layout with VISUAL INTEREST in every corner.
-  - BACKGROUND: NOT plain or boring. Must include design elements, shapes, gradients.
+    === PREMIUM COMMERCIAL DESIGN ENGINE(AVATAR / AI GENERATED) ===
+
+      MANDATORY DESIGN LANGUAGE:
+- COMPOSITION: Dynamic commercial layout with VISUAL INTEREST in every corner.
+  - BACKGROUND: NOT plain or boring.Must include design elements, shapes, gradients.
   - LIGHTING: Dramatic studio lighting with rim lights and accent colors.
-  - QUALITY: High-end advertising, NOT stock photo style.
+  - QUALITY: High - end advertising, NOT stock photo style.
   
-  PREMIUM VISUAL ELEMENTS (REQUIRED):
-  1. GEOMETRIC SHAPES: Add bold 3D shapes in background (spheres, cubes, abstract waves, donuts).
+  PREMIUM VISUAL ELEMENTS(REQUIRED):
+1. GEOMETRIC SHAPES: Add bold 3D shapes in background(spheres, cubes, abstract waves, donuts).
   2. COLOR BLOCKING: Use vibrant color blocks, gradients, or mesh gradients as background.
   3. FLOATING ACCENTS: Include floating icons, particles, or decorative elements.
-  4. DEPTH LAYERS: Create foreground blur, mid-ground subject, background elements.
+  4. DEPTH LAYERS: Create foreground blur, mid - ground subject, background elements.
   5. LIGHT EFFECTS: Add neon glows, lens flares, or dramatic rim lighting.
   
   HUMAN ELEMENT RULES:
-  - PHOTOREALISTIC: Real Brazilian person, Canon 5D DSLR quality. NO AI/3D LOOK.
-  - EMOTION: Expressive face, eye contact with camera, confidence/authority.
+- PHOTOREALISTIC: Real Brazilian person, Canon 5D DSLR quality.NO AI / 3D LOOK.
+  - EMOTION: Expressive face, eye contact with camera, confidence / authority.
   - SKIN: Natural texture, professional commercial retouch.
-  - FRAMING: AMERICAN SHOT / MEDIUM SHOT ONLY. Frame from WAIST to HEAD.
+  - FRAMING: AMERICAN SHOT / MEDIUM SHOT ONLY.Frame from WAIST to HEAD.
   - INTERACTION: Person can point, gesture, or interact with floating elements.
   
   COMPOSITION RULES:
-  - Person on LEFT or RIGHT third (not always center).
+- Person on LEFT or RIGHT third(not always center).
   - Design elements balance the opposite side.
   - Dynamic angles and visual flow.
   - Each variation MUST look significantly DIFFERENT.`;
@@ -1317,12 +1433,12 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   // SAFETY LAYER: IDENTITY PRESERVATION for Reference Images (Global Rule)
   if (hasReference) {
     prompt += `
-  === IDENTITY SEPARATION PROTOCOL (CRITICAL) ===
-  - IMAGE 2 (REFERENCE) IS A STYLE GUIDE ONLY. IT HAS NO IDENTITY.
+  === IDENTITY SEPARATION PROTOCOL(CRITICAL) ===
+    - IMAGE 2(REFERENCE) IS A STYLE GUIDE ONLY.IT HAS NO IDENTITY.
   - TREAT THE PERSON IN IMAGE 2 AS A "HEADLESS MANNEQUIN".
   - IGNORE the features, race, age, and hair of the person in Image 2.
   - FACE SOURCE: IMAGE 1 ONLY.
-  - BODY/STYLE SOURCE: IMAGE 2.
+  - BODY / STYLE SOURCE: IMAGE 2.
   
   NEGATIVE PROMPT: Mixed identity, morphing features, looking like reference person, blended faces, cloning reference.
   `;
@@ -1335,65 +1451,65 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   const premiumContextualBackground = hasProduct ? `
   === INTELLIGENT PRODUCT CONTEXT ENGINE ===
   
-  **CRITICAL**: You MUST analyze the product image and identify what it is BEFORE creating the background.
-  
+  ** CRITICAL **: You MUST analyze the product image and identify what it is BEFORE creating the background.
+
   STEP 1 - IDENTIFY THE PRODUCT CATEGORY:
   Look at the product and determine which category it belongs to:
   
-  📚 SCHOOL/EDUCATION (notebooks, backpacks, pencils, school supplies):
+  📚 SCHOOL / EDUCATION(notebooks, backpacks, pencils, school supplies):
      → ENVIRONMENTS: Classroom, school hallway, study desk at home, library, colorful study room
-     → ELEMENTS: Floating pencils, stars, books, school icons, rainbows (for kids)
-     → MOOD: Fun, colorful, youthful, back-to-school energy
-     → COLORS: Match the product colors (pink notebooks = pink tones in environment)
+     → ELEMENTS: Floating pencils, stars, books, school icons, rainbows(for kids)
+     → MOOD: Fun, colorful, youthful, back - to - school energy
+     → COLORS: Match the product colors(pink notebooks = pink tones in environment)
   
-  💳 FINTECH/PAYMENTS (card machines, payment devices, banking apps):
+  💳 FINTECH / PAYMENTS(card machines, payment devices, banking apps):
      → ENVIRONMENTS: Modern store counter, successful business, restaurant, food truck, marketplace
      → ELEMENTS: Floating coins, money, success graphs, green checkmarks, payment icons
      → MOOD: Success, trust, modern, business growth
-     → COLORS: Match device colors (green TON = green accents)
+     → COLORS: Match device colors(green TON = green accents)
   
-  💄 BEAUTY/COSMETICS (makeup, skincare, haircare):
+  💄 BEAUTY / COSMETICS(makeup, skincare, haircare):
      → ENVIRONMENTS: Bathroom vanity, spa, beauty salon, elegant bedroom, dressing room
      → ELEMENTS: Floating flowers, pearls, sparkles, beauty icons, water droplets
-     → MOOD: Glamorous, dewy, fresh, self-care
+     → MOOD: Glamorous, dewy, fresh, self - care
      → COLORS: Soft pinks, golds, match product packaging
-    🍔 FOOD/DELIVERY (food products, restaurants, delivery apps):
-      → ENVIRONMENTS: High-end Kitchen, upscale restaurant, blurred dining scene
+    🍔 FOOD / DELIVERY(food products, restaurants, delivery apps):
+      → ENVIRONMENTS: High - end Kitchen, upscale restaurant, blurred dining scene
       → ELEMENTS: Steam, garnish, professional plating, soft bokeh lights
-      → MOOD: Appetizing, premium, delicious, Michelin-star feel
+      → MOOD: Appetizing, premium, delicious, Michelin - star feel
       → COLORS: Warm rich tones, fresh ingredients colors
   
-  👕 FASHION/CLOTHING (clothes, shoes, accessories):
+  👕 FASHION / CLOTHING(clothes, shoes, accessories):
      → ENVIRONMENTS: Boutique, fashion runway, street style, closet, shopping district
      → ELEMENTS: Floating hangers, shopping bags, fashion icons
      → MOOD: Stylish, trendy, confident
      → COLORS: Match the clothing colors
   
-  🏠 REAL ESTATE/HOME (houses, apartments, furniture):
+  🏠 REAL ESTATE / HOME(houses, apartments, furniture):
      → ENVIRONMENTS: Elegant home interior, dream house exterior, luxury living room
      → ELEMENTS: Floating keys, house icons, hearts
      → MOOD: Aspirational, family, warmth, dream home
      → COLORS: Warm neutrals, luxury tones
   
-  📱 TECH/ELECTRONICS (phones, computers, gadgets):
+  📱 TECH / ELECTRONICS(phones, computers, gadgets):
      → ENVIRONMENTS: Modern office, tech startup, gaming setup, creative studio
      → ELEMENTS: Floating app icons, notifications, emojis, tech symbols
      → MOOD: Innovative, modern, connected
      → COLORS: Sleek blacks, tech blues, product accent colors
   
-  🏋️ FITNESS/HEALTH (gym equipment, supplements, activewear):
+  🏋️ FITNESS / HEALTH(gym equipment, supplements, activewear):
      → ENVIRONMENTS: Gym, outdoor running path, yoga studio, sports field
      → ELEMENTS: Floating weights, energy symbols, fire, muscles
      → MOOD: Energetic, powerful, healthy, motivated
      → COLORS: Energetic colors, match product
   
-  🧸 KIDS/TOYS (toys, children's products, games):
+  🧸 KIDS / TOYS(toys, children's products, games):
      → ENVIRONMENTS: Playroom, children's bedroom, playground, colorful nursery
      → ELEMENTS: Floating toys, balloons, stars, rainbows, cute characters
      → MOOD: Fun, playful, imaginative, safe
      → COLORS: Bright pastels, candy colors
   
-  🐕 PETS (pet food, accessories, pet services):
+  🐕 PETS(pet food, accessories, pet services):
      → ENVIRONMENTS: Park, cozy home with pet, pet store, backyard
      → ELEMENTS: Floating paw prints, bones, hearts, pet toys
      → MOOD: Loving, playful, caring
@@ -1421,30 +1537,30 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   `}
   
   STEP 3 - COLOR HARMONY:
-  - Extract the DOMINANT COLOR from the product packaging/design
+- Extract the DOMINANT COLOR from the product packaging / design
   - Apply this color as: lighting color, background tint, accent elements
-  - Pink product = pink-tinted environment
-  - Green product = green accents and lighting
+    - Pink product = pink - tinted environment
+      - Green product = green accents and lighting
   
   STEP 4 - FLOATING ELEMENTS:
-  Add 2-4 floating elements that make sense for the product category.
+  Add 2 - 4 floating elements that make sense for the product category.
   They should be RELEVANT to the product, not random.
   
   ABSOLUTE REQUIREMENTS:
   ✓ Environment MUST match the product category
   ✓ Colors MUST harmonize with product colors
   ✓ Mood MUST match the product's target audience
-  ✓ Each variation shows a DIFFERENT aspect (use, lifestyle, emotion)
-  
-  FORBIDDEN:
+  ✓ Each variation shows a DIFFERENT aspect(use, lifestyle, emotion)
+
+FORBIDDEN:
   ✗ Corporate offices for children's products
   ✗ Beach scenes for school supplies
   ✗ Luxury yachts for everyday products
   ✗ Environments that make NO SENSE for the product
   ` : `
   === PREMIUM AVATAR ENVIRONMENT ENGINE ===
-  
-  Create a PREMIUM LIFESTYLE ENVIRONMENT for the AI-generated avatar.
+
+    Create a PREMIUM LIFESTYLE ENVIRONMENT for the AI - generated avatar.
   
   VARIATION ${variationIndex} ENVIRONMENT:
   ${variationIndex === 1 ? `
@@ -1464,27 +1580,27 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   - Soft ambient with accent rim lighting
   `}
   
-  FLOATING ELEMENTS: Add 3-5 floating icons/emojis contextual to the scene.
+  FLOATING ELEMENTS: Add 3 - 5 floating icons / emojis contextual to the scene.
   DEPTH: Strong background blur, person sharp.
-  QUALITY: High-end commercial, magazine cover feel.
+    QUALITY: High - end commercial, magazine cover feel.
   `;
 
   const backgroundLogic = `
-  >>> CONTEXTUAL PREMIUM BACKGROUND ENGINE (Variation ${variationIndex}) <<<
+      >>> CONTEXTUAL PREMIUM BACKGROUND ENGINE(Variation ${variationIndex}) << <
+
+        ${premiumContextualBackground}
   
-  ${premiumContextualBackground}
-  
-  STYLE INFLUENCE (${style}):
-  - Apply the ${style} color palette and mood to the contextual environment
+  STYLE INFLUENCE(${style}):
+- Apply the ${style} color palette and mood to the contextual environment
   - The environment should FEEL like a ${style} advertisement
   
   ABSOLUTE REQUIREMENTS:
-  1. Background must be a REALISTIC ENVIRONMENT (not abstract shapes)
-  2. Environment must MATCH the product/avatar context
-  3. Colors must HARMONIZE with the product's brand colors
-  4. Include FLOATING CONTEXTUAL ELEMENTS (icons, emojis, indicators)
-  5. Each variation must show a DIFFERENT environment type
-  6. Quality: 8K, cinematic, magazine cover level
+1. Background must be a REALISTIC ENVIRONMENT(not abstract shapes)
+2. Environment must MATCH the product / avatar context
+3. Colors must HARMONIZE with the product's brand colors
+4. Include FLOATING CONTEXTUAL ELEMENTS(icons, emojis, indicators)
+5. Each variation must show a DIFFERENT environment type
+6. Quality: 8K, cinematic, magazine cover level
   `;
 
   // ONLY add premium background logic for graphic design modes, NOT for pure photography (studio/UGC)
@@ -1492,7 +1608,7 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   if (!isStudioOrUGC && !hasReference) {
     prompt += `
   ${backgroundLogic}
-    `;
+`;
   }
 
   // Layout and typography rules - only for design modes, not pure photography
@@ -1500,60 +1616,60 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   if (!isStudioOrUGC && hasReference) {
     prompt += `
   === TYPOGRAPHY RULES FOR REFERENCE MODE ===
-  TEXT POSITIONING:
-  - Place text in the TOP-LEFT or TOP area of the image
+    TEXT POSITIONING:
+- Place text in the TOP - LEFT or TOP area of the image
   - Text should be LARGE, BOLD, and EASY TO READ
-  - Use 2-3 lines maximum, with SHORT words per line
-  - Example: "Volta às\\naulas" (2 lines, stacked)
+    - Use 2 - 3 lines maximum, with SHORT words per line
+      - Example: "Volta às\\naulas"(2 lines, stacked)
   
   TEXT HIERARCHY:
-  - HEADLINE: Very large (like 80pt equivalent), Bold sans-serif, WHITE or contrasting color
-  - SUBTEXT (price/brand): Medium size, below headline
-  - CTA BUTTON: Pill-shaped button at the bottom
+- HEADLINE: Very large(like 80pt equivalent), Bold sans - serif, WHITE or contrasting color
+  - SUBTEXT(price / brand): Medium size, below headline
+    - CTA BUTTON: Pill - shaped button at the bottom
   
   TEXT CONSTRAINTS:
-  - NEVER place text overlapping the avatar's face
+- NEVER place text overlapping the avatar's face
   - NEVER use tiny unreadable fonts
-  - ALWAYS ensure high contrast (white on dark blue, or dark on light areas)
-  - Text should look PROFESSIONALLY DESIGNED, not randomly placed
-    `;
+    - ALWAYS ensure high contrast(white on dark blue, or dark on light areas)
+      - Text should look PROFESSIONALLY DESIGNED, not randomly placed
+        `;
   }
 
   if (!isStudioOrUGC && !hasReference) {
     prompt += `
-  LAYOUT & DIAGRAMMING RULES (CRITICAL):
-  - GRID SYSTEM: Align all elements (Subject, Text, CTA) to a professional 12-column grid.
-  - NEGATIVE SPACE: LEAVE 40% EMPTY SPACE for text safety. DO NOT CLUTTER THE WHOLE IMAGE.
-  - TEXT AREA: The text must sit on a CLEAN, HIGH-CONTRAST zone (Solid color or dark gradient area).
-  - CTA BUTTON: If CTA is requested, GENERATE A PHYSICAL LOOKING "BUTTON" SHAPE (e.g., Pill shape, dropshadow) behind the text location.
+LAYOUT & DIAGRAMMING RULES(CRITICAL):
+- GRID SYSTEM: Align all elements(Subject, Text, CTA) to a professional 12 - column grid.
+  - NEGATIVE SPACE: LEAVE 40 % EMPTY SPACE for text safety.DO NOT CLUTTER THE WHOLE IMAGE.
+  - TEXT AREA: The text must sit on a CLEAN, HIGH - CONTRAST zone(Solid color or dark gradient area).
+  - CTA BUTTON: If CTA is requested, GENERATE A PHYSICAL LOOKING "BUTTON" SHAPE(e.g., Pill shape, dropshadow) behind the text location.
   
-  === TYPOGRAPHY & LINE BREAK RULES (CRITICAL) ===
-  
+  === TYPOGRAPHY & LINE BREAK RULES(CRITICAL) ===
+
   TEXT FORMATTING:
-  - Break headlines into 2-3 SHORT LINES for visual impact
-  - Each line should have MAX 3-4 WORDS for readability
-  - Use STACKED typography (one word or phrase per line)
+- Break headlines into 2 - 3 SHORT LINES for visual impact
+  - Each line should have MAX 3 - 4 WORDS for readability
+    - Use STACKED typography(one word or phrase per line)
   
   CORRECT LINE BREAKS:
-  - "Mude para Ton" → "Mude\\npara\\nTon" (3 lines, one word each)
+- "Mude para Ton" → "Mude\\npara\\nTon"(3 lines, one word each)
   - "Esse criativo foi feito 100% com IA" → "Esse criativo foi\\nfeito 100%\\ncom IA"
-  - "Escale suas ofertas" → "Escale\\nsuas\\nofertas"
+    - "Escale suas ofertas" → "Escale\\nsuas\\nofertas"
   
   TEXT SIZE HIERARCHY:
-  - HEADLINE: Very large, bold, 2-3 short lines stacked
+- HEADLINE: Very large, bold, 2 - 3 short lines stacked
   - SUBTEXT: Smaller, beneath headline
-  - CTA: Button with readable text inside
+    - CTA: Button with readable text inside
   
   TEXT PLACEMENT:
-  - Reserve LEFT or BOTTOM corner for text block
+- Reserve LEFT or BOTTOM corner for text block
   - Text should never compete with the subject
-  - Maintain clear separation between text zone and person zone
+    - Maintain clear separation between text zone and person zone
 
-  FORBIDDEN:
-  - Long single lines that don't fit
+FORBIDDEN:
+- Long single lines that don't fit
   - Text overlapping the product or face
-  - Tiny unreadable text
-  - Text crammed into small spaces
+    - Tiny unreadable text
+      - Text crammed into small spaces
     `;
   }
 
@@ -1574,24 +1690,24 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     SUBJECT RULE: USE A HYPER - REALISTIC HUMAN AVATAR.
     - CONTEXT: ${avatarContext}
     ${config.ugcModel ? `- MANDATORY OVERRIDE: USER SELECTED "${config.ugcModel}". IGNORE ANY CONTEXT CLUES IN TEXT ABOUT AGE/GENDER. GENERATE EXACTLY THIS MODEL.` : ''}
-    - APPEARANCE: Highly detailed skin, perfect eyes.REAL PHOTOGRAPHY LOOK.
+- APPEARANCE: Highly detailed skin, perfect eyes.REAL PHOTOGRAPHY LOOK.
     - EMOTION: High energy, smiling.
-    ${style === VisualStyle.DELIVERY ? `- INTERACTION: SUBJECT MUST LOOK AT THE FOOD/PRODUCT with appetite OR present it to camera. NEVER look at empty space.` : ''}
-    `;
+  ${style === VisualStyle.DELIVERY ? `- INTERACTION: SUBJECT MUST LOOK AT THE FOOD/PRODUCT with appetite OR present it to camera. NEVER look at empty space.` : ''}
+`;
   }
 
   // GLOBAL PROMPT CONTINUATION
   prompt += `
-  CONTEXT & COLOR PALETTE:
-  - PALETTE: ${config.colorPalette ? `STRICTLY FOLLOW: ${config.colorPalette}.` : 'Match the PRODUCT BRAND COLORS.'} 
+CONTEXT & COLOR PALETTE:
+- PALETTE: ${config.colorPalette ? `STRICTLY FOLLOW: ${config.colorPalette}.` : 'Match the PRODUCT BRAND COLORS.'} 
   
   TASK EXECUTION:
-  - PROMPT: ${productDescription}.`;
+- PROMPT: ${productDescription}.`;
 
   // BOX LAYOUT LOGIC
   if (useBoxLayout) {
     prompt += `
-    - LAYOUT MODE: "MANUAL EDITING CANVAS".
+  - LAYOUT MODE: "MANUAL EDITING CANVAS".
     - CRITICAL: NO READABLE TEXT.NO BOXES.CLEAN BACKGROUND.
     `;
   }
@@ -1604,8 +1720,8 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     // Only enforce rigid diagramming if NO reference is present
     if (!hasReference) {
       prompt += `
-      >>> DIAGRAMMING & TEXT ENGINE ACTIVE <<<
-        CRITICAL INSTRUCTION: THE TEXT IS THE MAIN CHARACTER.
+  >>> DIAGRAMMING & TEXT ENGINE ACTIVE << <
+    CRITICAL INSTRUCTION: THE TEXT IS THE MAIN CHARACTER.
       1. EXPLICITLY ALLOCATE 30 % OF THE CANVAS for the text.Do not put the subject there.
       2. CREATE A HIGH - CONTRAST ZONE(Dark Gradient Overlay or Solid Shape) specifically for the text to sit on.
       3. CHECK CONTRAST: White Text on Light Background is FORBIDDEN.Dark Text on Dark Background is FORBIDDEN.
@@ -1618,17 +1734,17 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
 
       prompt += `
        CONTENT TO WRITE(VERBATIM):
-  - HEADLINE: "${config.copyText}"
+- HEADLINE: "${config.copyText}"
        ${typographyRules}
-  - POSITIONING: ${hasReference ? 'MATCH REFERENCE IMAGE LAYOUT EXACTLY' : (variationIndex === 2 ? 'Asymmetrical (Left/Right)' : 'Integrated Center/Top')}.
-  - SPELLING CHECK: Portuguese.Accents(á, é, ã, ç) are MANDATORY.
+- POSITIONING: ${hasReference ? 'MATCH REFERENCE IMAGE LAYOUT EXACTLY' : (variationIndex === 2 ? 'Asymmetrical (Left/Right)' : 'Integrated Center/Top')}.
+- SPELLING CHECK: Portuguese.Accents(á, é, ã, ç) are MANDATORY.
        `;
     } else {
       prompt += `
   === NO TEXT REQUESTED ===
-  CRITICAL: The user did NOT provide any headline text.
+    CRITICAL: The user did NOT provide any headline text.
   DO NOT generate ANY text, titles, headlines, or typography in this image.
-  This should be a TEXT-FREE composition focused purely on the visual.
+  This should be a TEXT - FREE composition focused purely on the visual.
   NEGATIVE: text, typography, headlines, titles, words, letters, captions, watermarks.
       `;
     }
@@ -1637,11 +1753,11 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
       prompt += `
     - ACTION BUTTON(CTA): GENERATE A VISIBLE BUTTON.
       - TEXT ON BUTTON: "${ctaText}"
-    - STYLE: Pill Shape or Rounded Rectangle.High Contrast Color(e.g.Green / Blue) matching brand.
+  - STYLE: Pill Shape or Rounded Rectangle.High Contrast Color(e.g.Green / Blue) matching brand.
       `;
     } else {
       prompt += `
-      - CRITICAL: DO NOT GENERATE ANY BUTTONS.NO "SIGN UP" BUTTONS.NO FAKE UI ELEMENTS.
+    - CRITICAL: DO NOT GENERATE ANY BUTTONS.NO "SIGN UP" BUTTONS.NO FAKE UI ELEMENTS.
       - CLEAN LAYOUT without Call - to - Actions.
       `;
     }
@@ -1652,28 +1768,28 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   // GLOBAL PRODUCT OVERRIDE (SAFEGUARD)
   if (hasProduct) {
     prompt += `
-    ================================================================================
+  ================================================================================
     *** GLOBAL PRODUCT RULE(OVERRIDES ALL STYLE SETTINGS) ***
     ================================================================================
-    1. HERO PRODUCT PRIORITY: ONE.
+  1. HERO PRODUCT PRIORITY: ONE.
        - The image provided as "Product" is the HOLY GRAIL. 
        - YOU MUST COMPOSITE THIS EXACT PRODUCT IMAGE INTO THE SCENE.
        - DO NOT DRAW A NEW PRODUCT.DO NOT "INSPIRE" YOURSELF.USE THE SOURCE PIXELS.
        - IF THE SHOWING PRODUCT IS A MACHINE(e.g., Payment Terminal), SHOW THAT EXACT MODEL.
     
     2. ANTI - HALLUCINATION PROTOCOL:
-  - DO NOT CHANGE THE BUTTON COLORS.
+- DO NOT CHANGE THE BUTTON COLORS.
        - DO NOT CHANGE THE SCREEN CONTENT.
        - DO NOT CHANGE THE DEVICE SHAPE.
        - IF THE HANDS DON'T FIT, CHANGE THE HANDS. NEVER CHANGE THE DEVICE.
 
-  3. INTERACTION MANDATE:
-  - The Subject(Person) MUST be holding the product FIRMLY.
+3. INTERACTION MANDATE:
+- The Subject(Person) MUST be holding the product FIRMLY.
        - HANDS MUST BE VISIBLE gripping the device.
        - IF "Minimalist" or "Clean" style is selected, YOU MUST STILL SHOW THE PRODUCT AND HANDS.
     
     4. PRODUCT FIDELITY:
-  - KEEP COLORS EXACT.
+- KEEP COLORS EXACT.
        - KEEP LOGOS VISIBLE.
        - KEEP SCREEN CONTENT(if any).
     `;
@@ -1682,53 +1798,90 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
   // === USER BRIEFING OVERRIDE (HIGHEST PRIORITY) ===
   if (productDescription) {
     prompt += `
-    \n================================================================================
-    *** USER BRIEFING (HIGHEST PRIORITY - OVERRIDES ALL STYLE SETTINGS) ***
+\n ================================================================================
+    *** USER BRIEFING - ABSOLUTE HIGHEST PRIORITY - MUST OBEY ***
     ================================================================================
-    The user has provided a specific description/briefing:
-    "${productDescription}"
+    ⚠️ CRITICAL: The following instructions from the user OVERRIDE ALL other rules.
+    
+    USER INSTRUCTIONS:
+"${productDescription}"
 
-    INSTRUCTION:
-    1. If the user mentions a specific LOCATION (e.g., "Park", "Kitchen", "São Paulo"), YOU MUST USE IT.
-       - Ignore the default style background if it conflicts.
-    2. If the user mentions specific ELEMENTS, they must be present.
+  === MANDATORY OBEDIENCE RULES ===
+
+    1. CLOTHING INSTRUCTIONS:
+- If user mentions "casual" → T - shirt, jeans, relaxed wear
+  - If user mentions "social" / "formal" → Blazer, dress shirt, suit
+    - If user mentions specific clothing → USE EXACTLY THAT
+      - If user mentions color of clothing → THAT EXACT COLOR
+
+2. TEXT & TYPOGRAPHY INSTRUCTIONS:
+- If user says "texto grande" / "fontes grandes" → USE EXTRA LARGE FONTS(like 100pt equivalent)
+  - If user says "destaque" → Make text POP with high contrast and size
+    - If user mentions text position → PLACE TEXT EXACTLY THERE
+      - If user says "legível" → Ensure HIGH CONTRAST and LARGE SIZE
+
+3. POSE & FRAMING INSTRUCTIONS:
+- If user says "apontando" → Model pointing at text / product
+  - If user says "close" / "rosto" → Tighter framing on face
+    - If user says "olhando para" → Model looking at specified element
+      - If user says "lado direito/esquerdo" → Position model on that side
+
+4. COLOR INSTRUCTIONS:
+- If user mentions ANY color → USE THAT COLOR prominently
+  - If user says "cores da marca" → Extract and use brand colors
+    - If user says "vibrante" → Use saturated, bold colors
+      - If user says "discreto" → Use muted, professional tones
+
+5. SCENE / ENVIRONMENT INSTRUCTIONS:
+- If user mentions a location → USE THAT EXACT LOCATION
+  - If user says "escritório" → Office background
+    - If user says "natureza" → Nature / outdoor background
+      - ANY location mentioned by user OVERRIDES style presets
+
+        === EXECUTION PROTOCOL ===
+          READ the user instructions CAREFULLY.
+    IDENTIFY each specific request(clothing, text, colors, pose, etc.)
+    APPLY each request LITERALLY - do not interpret loosely.
+If in doubt, FAVOR the user's explicit instruction over any preset.
+
+FORBIDDEN: Ignoring any user instruction.The user is the FINAL AUTHORITY.
     `;
   }
 
   // === FINAL ANATOMY & SAFETY CHECK ===
   prompt += `
-  \n================================================================================
+\n ================================================================================
   *** FINAL SAFETY PROTOCOLS ***
   ================================================================================
-  1. ANATOMY CHECK (CRITICAL):
-     - MAX 2 ARMS ONLY. Count them.
-     - MAX 2 HANDS ONLY. Count them.
+  1. ANATOMY CHECK(CRITICAL):
+- MAX 2 ARMS ONLY.Count them.
+     - MAX 2 HANDS ONLY.Count them.
      - IF holding a product, the "old" hands must be DELETED.
      - NO "Ghost hands" floating behind the product.
   
   2. IDENTITY CHECK:
-     - Person must look like Input Image 1.
-  
-  3. COMPOSITION CHECK:
-     - Is the text legible? (If any)
-     - Is the product visible?
+- Person must look like Input Image 1.
+
+3. COMPOSITION CHECK:
+- Is the text legible ? (If any)
+- Is the product visible ?
   `;
 
   // YOUTUBE THUMBNAIL LOGIC
   if (type === CreationType.YOUTUBE_THUMB) {
     if (hasReference) {
       prompt += `
-      FORMAT: YouTube Thumbnail (16:9).
+      FORMAT: YouTube Thumbnail(16: 9).
       - STYLE: MATCH THE REFERENCE IMAGE EXACTLY.
-      - COMPOSITION: Analyze the reference image and use its exact layout (Subject placement, Text placement, Background style).
+      - COMPOSITION: Analyze the reference image and use its exact layout(Subject placement, Text placement, Background style).
       - TEXT VISIBILITY: High Contrast, Legible, Professional.
       `;
     } else {
       prompt += `
-      FORMAT: YouTube Thumbnail (16:9).
+FORMAT: YouTube Thumbnail(16: 9).
       - STYLE: "MrBeast Style" High CTR.
       - COMPOSITION: SPLIT LAYOUT RULE.
-        * SUBJECT: Placed on the RIGHT (or LEFT) occupying 40% of frame.
+        * SUBJECT: Placed on the RIGHT(or LEFT) occupying 40 % of frame.
         * TEXT AREA: Empty space on the OPPOSITE side.
       - TEXT VISIBILITY: HUGE, STROKED, HIGH CONTRAST.
       `;
@@ -1746,22 +1899,23 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
               : 'THANK YOU / CONTACT (CONTATO)';
 
     prompt += `
-    === CREATIVE BACKGROUND & PPT LAYOUT ENGINE ===
+  === CREATIVE BACKGROUND & PPT LAYOUT ENGINE ===
     target_SLIDE_TYPE: ${slideType}
-    
-    GOAL: ${isSubjectMode ? 'Create a Corporate Presentation Slide with Subject.' : 'Create a High-End ABSTRACT BRAND BACKGROUND. Graphics Only.'}
-    
-    1. VISUAL IDENTITY (MINIMALIST APPROACH):
-       - EXTRACT: Primary brand color (use sparingly as accents).
-       - STYLE: Ultra-Clean, Corporate, Apple-Style Minimalism.
-       - SHAPES: Use only simple GEOMETRIC shapes (Rectangles, Circles). NO organic blobs. NO messy patterns.
+
+GOAL: ${isSubjectMode ? 'Create a Corporate Presentation Slide with Subject.' : 'Create a High-End ABSTRACT BRAND BACKGROUND. Graphics Only.'}
+
+1. VISUAL IDENTITY(MINIMALIST APPROACH):
+- EXTRACT: Primary brand color(use sparingly as accents).
+       - STYLE: Ultra - Clean, Corporate, Apple - Style Minimalism.
+       - SHAPES: Use only simple GEOMETRIC shapes(Rectangles, Circles).NO organic blobs.NO messy patterns.
        - BACKGROUND: Predominantly WHITE or VERY LIGHT GRAY.
-       - DO NOT create "Abstract Art". Create "Functional Slide Templates".
-       ${config.brandColors && config.brandColors.length > 0 ? `
+       - DO NOT create "Abstract Art".Create "Functional Slide Templates".
+  ${config.brandColors && config.brandColors.length > 0 ? `
        === BRAND COLOR ACCENTS ===
        USE THESE COLORS FOR ACCENTS (Lines, Buttons, Small Shapes):
        ${config.brandColors.map((c, i) => `COLOR ${i + 1}: ${c}`).join('\n       ')}
-       ` : ''}
+       ` : ''
+      }
 
     ${isSubjectMode ? `
     2. SLIDE ARCHETYPE RULES (VARIATION ${variationIndex}/6):
@@ -1797,31 +1951,32 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
        - VIBE: Premium, Corporate, Global Tech Company.
     `}
 
-  3. STYLE:
-  - Corporate, High-End, Clean.
+3. STYLE:
+- Corporate, High - End, Clean.
        - Soft shadows, professional lighting.
        - Depth: The background should feel like a premium wall or digital surface.
 
-    ${isSubjectMode ? `
+  ${isSubjectMode ? `
     4. SUBJECT INTEGRATION:
   - The subject must look like they are standing in this branded environment.
        - Match lighting on the subject to the background colors.
-    ` : ''}
-    `;
+    ` : ''
+      }
+`;
   }
 
   // MASTER RULES
   prompt += `
   CRITICAL MASTER RULE - FORMAT & ASPECT RATIO:
-  - ASPECT RATIO: ${aspectRatio}.
-  - FILL 100 % OF THE CANVAS.
+- ASPECT RATIO: ${aspectRatio}.
+- FILL 100 % OF THE CANVAS.
   
   NEGATIVE PROMPT(MANDATORY - STRICTLY ENFORCED):
-  - WATERMARK REMOVAL: "Designi", "Designi" Logo, Diagonal Watermarks, White Grid Lines, Stock Photo Watermark.
+- WATERMARK REMOVAL: "Designi", "Designi" Logo, Diagonal Watermarks, White Grid Lines, Stock Photo Watermark.
   - TEXT & WATERMARKS: NO TEXT FROM INPUT IMAGES.NO COPYRIGHT SIGNS.NO STOCK PHOTO TEXT.NO BRANDING ON BACKGROUND.
   - SOURCE POISONING: DO NOT USE THE BACKGROUND PIXELS FROM IMAGE 2.
-    - ARTIFACTS: NO blurry text, no jpeg artifacts, no pixelated logos.
-      ${style === VisualStyle.DESIGNI_PD_PRO ?
+  - ARTIFACTS: NO blurry text, no jpeg artifacts, no pixelated logos.
+    ${style === VisualStyle.DESIGNI_PD_PRO ?
       `- VISUAL QUALITY: No low resolution, no blurry text, no distorted faces.
      - COMPOSITION: No text covering the face. No messy composition.`
       :
@@ -1829,11 +1984,11 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
      - SYMBOLS: NO % SIGNS. NO RANDOM ICONS. NO EMOJI. NO FLOATING LOGOS.
      - GRAPHICS: NO ILLUSTRATION ELEMENTS. NO CARTOON STYLE. ONLY PHOTOREALISM.`
     }
-  - TEXT: NO EXTRA WORDS.NO "LOREM IPSUM".NO FAKE PLACEHOLDERS.
+- TEXT: NO EXTRA WORDS.NO "LOREM IPSUM".NO FAKE PLACEHOLDERS.
   - PRODUCT: DO NOT INVENT A NEW PRODUCT.USE THE UPLOADED PRODUCT IMAGE EXACTLY.
   - STYLE: PROFESSIONAL PHOTOGRAPHY ONLY.Like magazine covers, not like mobile game ads.
-    ${style === VisualStyle.DESIGNI_PD_PRO ? `- PRODUCT FIDELITY (CRITICAL): DO NOT CHANGE THE PRODUCT. IF A NOTEBOOK IS UPLOADED, USE THAT EXACT COVER ART. DO NOT GENERATE A GENERIC CARTOON NOTEBOOK. USE THE IMAGE 2.` : ''}
-  `;
+  ${style === VisualStyle.DESIGNI_PD_PRO ? `- PRODUCT FIDELITY (CRITICAL): DO NOT CHANGE THE PRODUCT. IF A NOTEBOOK IS UPLOADED, USE THAT EXACT COVER ART. DO NOT GENERATE A GENERIC CARTOON NOTEBOOK. USE THE IMAGE 2.` : ''}
+`;
 
   return prompt;
 };
@@ -1843,60 +1998,60 @@ const getMascotPresets = (style: MascotStyle): string => {
   const presets: Record<MascotStyle, string> = {
     [MascotStyle.PIXAR_3D]: `
       VISUAL STYLE: 3D Animation Style(Pixar / Disney - like).
-    RENDER: Octane Render, Redshift, Raytracing, Subsurface Scattering(SSS).
-      FEATURES: Big expressive eyes, soft rounded shapes, vibrant lighting.
-        TEXTURES: High quality velvet / skin / fabric textures.
-          BACKGROUND: Clean studio gradient or soft blurred 3D environment.
-            VIBE: Friendly, High - Budget Movie Character.
+  RENDER: Octane Render, Redshift, Raytracing, Subsurface Scattering(SSS).
+    FEATURES: Big expressive eyes, soft rounded shapes, vibrant lighting.
+      TEXTURES: High quality velvet / skin / fabric textures.
+        BACKGROUND: Clean studio gradient or soft blurred 3D environment.
+          VIBE: Friendly, High - Budget Movie Character.
     `,
     [MascotStyle.CARTOON_2D]: `
       VISUAL STYLE: Classic 2D Vector Cartoon.
-    RENDER: Flat colors, clean thick outlines, cel - shading.
-      FEATURES: Exaggerated expressions, dynamic poses, simplified anatomy.
-        COLORS: Bold, primary colors, high contrast.
-          BACKGROUND: Solid color or simple vector pattern.
-            VIBE: Tv Show, Sticker pack, Brand Mascot.
+  RENDER: Flat colors, clean thick outlines, cel - shading.
+    FEATURES: Exaggerated expressions, dynamic poses, simplified anatomy.
+      COLORS: Bold, primary colors, high contrast.
+        BACKGROUND: Solid color or simple vector pattern.
+          VIBE: Tv Show, Sticker pack, Brand Mascot.
     `,
     [MascotStyle.ANIME_MODERN]: `
       VISUAL STYLE: Modern Anime / Manga.
-    RENDER: 2D with high - quality digital painting effects.
-      FEATURES: Large detailed eyes, spiky / stylized hair, dramatic lighting.
-        AESTHETIC: Shonen / Shojo premium quality.
-          BACKGROUND: Speed lines, sparkles, or detailed anime background.
-            VIBE: Heroic, Cute(Kawaii), or Cool.
+  RENDER: 2D with high - quality digital painting effects.
+    FEATURES: Large detailed eyes, spiky / stylized hair, dramatic lighting.
+      AESTHETIC: Shonen / Shojo premium quality.
+        BACKGROUND: Speed lines, sparkles, or detailed anime background.
+          VIBE: Heroic, Cute(Kawaii), or Cool.
     `,
     [MascotStyle.CLAYMATION]: `
       VISUAL STYLE: Claymation / Stop Motion / Plasticine.
-    RENDER: Fingerprint textures, imperfect clay surfaces, soft shadows.
-      FEATURES: Aardman style, physical handcrafted look.
-        LIGHTING: Studio photography lighting on small objects.
-          VIBE: Tactile, Nostalgic, Hand - made.
+  RENDER: Fingerprint textures, imperfect clay surfaces, soft shadows.
+    FEATURES: Aardman style, physical handcrafted look.
+      LIGHTING: Studio photography lighting on small objects.
+        VIBE: Tactile, Nostalgic, Hand - made.
     `,
     [MascotStyle.FUNKO_POP]: `
       VISUAL STYLE: Vinyl Toy Figure(Funko Pop style).
-    ANATOMY: Giant square - ish head, black button eyes(or style specific), small body.
-      RENDER: Plastic / Vinyl material, glossy finish.
-        BOX: Optionally inside or near a collector box.
-          VIBE: Collectible, Toy, Merchandise.
+  ANATOMY: Giant square - ish head, black button eyes(or style specific), small body.
+    RENDER: Plastic / Vinyl material, glossy finish.
+      BOX: Optionally inside or near a collector box.
+        VIBE: Collectible, Toy, Merchandise.
     `,
     [MascotStyle.HAND_DRAWN]: `
       VISUAL STYLE: Pencil Sketch / Watercolor / Marker.
-    RENDER: Visible paper texture, rough strokes, artistic imperfections.
-      FEATURES: Loose lines, artistic interpretation.
-        VIBE: Organic, Creative, Draft, Storyboard.
+  RENDER: Visible paper texture, rough strokes, artistic imperfections.
+    FEATURES: Loose lines, artistic interpretation.
+      VIBE: Organic, Creative, Draft, Storyboard.
     `,
     [MascotStyle.RETRO_PIXEL]: `
       VISUAL STYLE: 16 - bit or 32 - bit Pixel Art.
-    RENDER: Blocky pixels, limited color palette, dither shading.
-      FEATURES: Game sprite aesthetic, retro gaming.
-        VIBE: Nostalgic, Tech, Indie Game.
+  RENDER: Blocky pixels, limited color palette, dither shading.
+    FEATURES: Game sprite aesthetic, retro gaming.
+      VIBE: Nostalgic, Tech, Indie Game.
     `,
     [MascotStyle.REALISTIC_PLUSHD]: `
       VISUAL STYLE: Realistic Plush Toy / Felt Material.
-    RENDER: Visible fur / fabric fibers, stitching details, soft stuffing look.
-      FEATURES: Cute button eyes, huggable shape.
-        LIGHTING: Soft nursery lighting.
-          VIBE: Adorable, Soft, Kid - friendly product.
+  RENDER: Visible fur / fabric fibers, stitching details, soft stuffing look.
+    FEATURES: Cute button eyes, huggable shape.
+      LIGHTING: Soft nursery lighting.
+        VIBE: Adorable, Soft, Kid - friendly product.
     `
   };
   return presets[style] || presets[MascotStyle.PIXAR_3D];
@@ -1905,8 +2060,8 @@ const getMascotPresets = (style: MascotStyle): string => {
 const getStylePresets = (style: VisualStyle, socialClass?: SocialClass): string => {
   // PREMIUM DESIGN ENGINE - Inspired by Behance/Dribbble top commercial designs
   const premiumDesignRules = `
-            === MANDATORY PREMIUM DESIGN ELEMENTS ===
-              1. GEOMETRIC SHAPES: Add bold 3D shapes in background(spheres, cubes, donuts, abstract waves, splashes).
+          === MANDATORY PREMIUM DESIGN ELEMENTS ===
+            1. GEOMETRIC SHAPES: Add bold 3D shapes in background(spheres, cubes, donuts, abstract waves, splashes).
   2. FLOATING ELEMENTS: Include floating icons, decorative elements, or brand symbols strategically placed.
   3. DEPTH LAYERS: Create 3 distinct layers(foreground blur elements, mid - ground subject, background design).
   4. DYNAMIC COMPOSITION: Use rule of thirds.Person on one side, design elements on the other.
@@ -1918,260 +2073,260 @@ const getStylePresets = (style: VisualStyle, socialClass?: SocialClass): string 
     // 🔘 MODERNO -> Tech Corporate Premium
     case VisualStyle.MODERN: return `${premiumDesignRules}
       ART DIRECTION: MODERN DIGITAL ADVERTISING(Clean & Bold).
-    BACKGROUND: Smooth, matte gradient backgrounds(Deep Blue / Purple or Brand Color) with subtle motion blur.
+  BACKGROUND: Smooth, matte gradient backgrounds(Deep Blue / Purple or Brand Color) with subtle motion blur.
       DESIGN ELEMENTS:
-  - ROUNDED GLASS PANELS specifically placed to hold text(Sidebar or Bottom card).
+- ROUNDED GLASS PANELS specifically placed to hold text(Sidebar or Bottom card).
   - Floating 3D abstract shapes(Matte finish, non - distracting) to add depth.
     - Clean layout with 40 % NEGATIVE SPACE reserved for headlines.
       - Soft UI elements(like notification bubbles or search bars) if Tech product.
-      COLORS: Brand Colors + White / Grey.High contrast.
-        LIGHTING: Soft, diffused commercial lighting.No harsh shadows.
-          TYPOGRAPHY:
-  - FONT FAMILY: Sans - serif Geometric(Inter, Roboto, Poppins).
+    COLORS: Brand Colors + White / Grey.High contrast.
+      LIGHTING: Soft, diffused commercial lighting.No harsh shadows.
+        TYPOGRAPHY:
+- FONT FAMILY: Sans - serif Geometric(Inter, Roboto, Poppins).
       - STYLE: Clean, bold headlines.High readability.
       - WEIGHT: Bold for headers, Regular for body.
-    COMPOSITION: Asymmetrical.Subject Left / Right.Clear Empty Space for Text on opposite side.
-      VIBE: Premium App Store Ad, SaaS Landing Page, Modern Startup.`;
+  COMPOSITION: Asymmetrical.Subject Left / Right.Clear Empty Space for Text on opposite side.
+    VIBE: Premium App Store Ad, SaaS Landing Page, Modern Startup.`;
 
     // 🔘 PROFISSIONAL -> Trust Authority Premium
     case VisualStyle.PROFESSIONAL: return `${premiumDesignRules}
       ART DIRECTION: HIGH - END COMMERCIAL CAMPAIGN(TV Commercial Style).
-    BACKGROUND: Dynamic Studio Background(Infinite Wall or Blurred City / Office with depth).
+  BACKGROUND: Dynamic Studio Background(Infinite Wall or Blurred City / Office with depth).
       DESIGN ELEMENTS:
-  - DYNAMIC MOTION: Blurred particles or light trails indicating speed / efficiency.
+- DYNAMIC MOTION: Blurred particles or light trails indicating speed / efficiency.
     - PRODUCT CONTEXT: Floating elements relevant to niche(e.g.Coins / Graphs for Finance, Ingredients for Food).
       - NO GOLD FRAMES.NO MARBLE.NO OLD SCHOOL LUXURY.
         - Clean, invisible grids organizing the space.
-    COLORS: Deep, rich commercial tones(Navy, Charcoal, Forest Green) or BRAND PRIMARY COLOR.
-      LIGHTING: Cinematic "Hero" Lighting.Rim lights separating subject from background.
-        TYPOGRAPHY:
-  - FONT FAMILY: Authoritative Serif or Sans(Helvetica, Garamond, Playfair Display).
+  COLORS: Deep, rich commercial tones(Navy, Charcoal, Forest Green) or BRAND PRIMARY COLOR.
+    LIGHTING: Cinematic "Hero" Lighting.Rim lights separating subject from background.
+      TYPOGRAPHY:
+- FONT FAMILY: Authoritative Serif or Sans(Helvetica, Garamond, Playfair Display).
       - STYLE: Trustworthy, established, premium.
       - WEIGHT: Medium to Bold.
-    COMPOSITION: Cinematic wide aperture feel.Focus on Subject + Product.
-      VIBE: Nike Ad, Bank TV Commercial, High - Budget Photoshoot.`;
+  COMPOSITION: Cinematic wide aperture feel.Focus on Subject + Product.
+    VIBE: Nike Ad, Bank TV Commercial, High - Budget Photoshoot.`;
 
     // 🔘 CRIATIVO -> Bold Colorful Explosion
     case VisualStyle.CREATIVE: return `${premiumDesignRules}
       ART DIRECTION: BOLD COLORFUL EXPLOSION(Spotify Wrapped / Canva Pro Style).
-    BACKGROUND: Vibrant mesh gradient(Purple / Pink / Yellow / Orange fusion) with fluid abstract shapes.
+  BACKGROUND: Vibrant mesh gradient(Purple / Pink / Yellow / Orange fusion) with fluid abstract shapes.
       DESIGN ELEMENTS:
-  - BOLD 3D shapes: Donuts, twisted rings, abstract sculptures, paint splashes
-    - Floating colorful spheres and particles
-      - Organic flowing shapes and waves
-        - Neon accent lines and glowing edges
-          - Confetti or particle burst effects
-  COLORS: Hot Pink(#FF1493), Electric Yellow(#FFE500), Vibrant Purple(#9B59B6), Cyan.
-    LIGHTING: Colorful ambient lighting matching gradient.Multiple color sources.
-      TYPOGRAPHY:
-  - FONT FAMILY: Bold Display, Artistic, Experimental(Clash Display, Syne, Bangers).
+- BOLD 3D shapes: Donuts, twisted rings, abstract sculptures, paint splashes
+  - Floating colorful spheres and particles
+    - Organic flowing shapes and waves
+      - Neon accent lines and glowing edges
+        - Confetti or particle burst effects
+COLORS: Hot Pink(#FF1493), Electric Yellow(#FFE500), Vibrant Purple(#9B59B6), Cyan.
+  LIGHTING: Colorful ambient lighting matching gradient.Multiple color sources.
+    TYPOGRAPHY:
+- FONT FAMILY: Bold Display, Artistic, Experimental(Clash Display, Syne, Bangers).
       - STYLE: Playful, loud, unconventional.
       - WEIGHT: Black / Heavy.
-    COMPOSITION: Dynamic diagonal composition.Subject on one third, explosion of elements on the other.
-      VIBE: Spotify Wrapped, Instagram Year in Review, Festival Poster.`;
+  COMPOSITION: Dynamic diagonal composition.Subject on one third, explosion of elements on the other.
+    VIBE: Spotify Wrapped, Instagram Year in Review, Festival Poster.`;
 
     // 🔘 CLEAN -> Apple Minimalism Premium
     case VisualStyle.CLEAN: return `${premiumDesignRules}
       ART DIRECTION: ULTRA - CLEAN MINIMALISM(Apple Style Premium).
-    BACKGROUND: Pure white void OR soft grey gradient with subtle shadows.
+  BACKGROUND: Pure white void OR soft grey gradient with subtle shadows.
       DESIGN ELEMENTS:
-  - Minimal: only soft contact shadows
-    - ONE focal point(the subject / product)
-      - Subtle light gradient behind subject
-        - Clean geometric frame or border(optional)
-  COLORS: Pure White(#FFFFFF), Soft Grey(#F5F5F5), ONE accent color from brand.
-    LIGHTING: Soft, diffused light.No harsh shadows.Beauty dish setup.
-      TYPOGRAPHY:
-  - FONT FAMILY: Minimalist Sans(Helvetica Neue, San Francisco, Arial).
+- Minimal: only soft contact shadows
+  - ONE focal point(the subject / product)
+    - Subtle light gradient behind subject
+      - Clean geometric frame or border(optional)
+COLORS: Pure White(#FFFFFF), Soft Grey(#F5F5F5), ONE accent color from brand.
+  LIGHTING: Soft, diffused light.No harsh shadows.Beauty dish setup.
+    TYPOGRAPHY:
+- FONT FAMILY: Minimalist Sans(Helvetica Neue, San Francisco, Arial).
       - STYLE: Neutral, invisible, functional.
       - WEIGHT: Light to Medium.
-    COMPOSITION: Perfect center or extreme negative space.Let the subject breathe.
-      VIBE: Apple Product Page, Tesla Marketing, Premium Tech Unboxing.`;
+  COMPOSITION: Perfect center or extreme negative space.Let the subject breathe.
+    VIBE: Apple Product Page, Tesla Marketing, Premium Tech Unboxing.`;
 
     // 🔘 DARK -> Cyberpunk Premium
     case VisualStyle.DARK: return `${premiumDesignRules}
       ART DIRECTION: PREMIUM DARK MODE(Cyberpunk / Gaming Style).
-    BACKGROUND: Matte Black(#0A0A0A) with subtle carbon fiber or hex grid texture.
+  BACKGROUND: Matte Black(#0A0A0A) with subtle carbon fiber or hex grid texture.
       DESIGN ELEMENTS:
-  - Neon rim lights(Cyan / Magenta / Purple)
-    - Cyberpunk grid lines fading into perspective
-      - Holographic / glitch effects
-        - Floating neon geometric shapes
-          - Subtle circuit board patterns
-  COLORS: Pure Black, Neon Cyan(#00FFFF), Hot Magenta(#FF00FF), Electric Purple.
-    LIGHTING: Strong rim / edge lighting with neon colors.Dark key light.
-      TYPOGRAPHY:
-  - FONT FAMILY: Monospace, Cyberpunk Sans, Futuristic(Orbitron, Rajdhani, Courier Prime).
+- Neon rim lights(Cyan / Magenta / Purple)
+  - Cyberpunk grid lines fading into perspective
+    - Holographic / glitch effects
+      - Floating neon geometric shapes
+        - Subtle circuit board patterns
+COLORS: Pure Black, Neon Cyan(#00FFFF), Hot Magenta(#FF00FF), Electric Purple.
+  LIGHTING: Strong rim / edge lighting with neon colors.Dark key light.
+    TYPOGRAPHY:
+- FONT FAMILY: Monospace, Cyberpunk Sans, Futuristic(Orbitron, Rajdhani, Courier Prime).
       - STYLE: Tech - oriented, digital, edgy.
       - WEIGHT: Bold headers, light body.
-    COMPOSITION: Subject emerging from darkness with dramatic lighting.
-      VIBE: Gaming Brand, Tech Startup Night Mode, Cyberpunk 2077.`;
+  COMPOSITION: Subject emerging from darkness with dramatic lighting.
+    VIBE: Gaming Brand, Tech Startup Night Mode, Cyberpunk 2077.`;
 
     // 🔘 LUXO -> Gold & Marble Premium
     case VisualStyle.LUXURY: return `${premiumDesignRules}
       ART DIRECTION: LUXURY FASHION(Chanel / Dior Level).
-    BACKGROUND: Black marble texture OR silk drape OR gold foil accents on dark.
+  BACKGROUND: Black marble texture OR silk drape OR gold foil accents on dark.
       DESIGN ELEMENTS:
-  - Gold leaf accents and geometric gold lines
-    - Marble texture overlays
-      - Silk or satin fabric elements
-        - Subtle diamond / crystal reflections
-          - Elegant serif typography overlay(optional)
-  COLORS: Gold(#D4AF37), Black, Cream(#FFFDD0), Rose Gold.
-    LIGHTING: Golden hour spotlight.Warm, luxurious tones.
-      TYPOGRAPHY:
-  - FONT FAMILY: Elegant Serif(Bodoni, Didot, Cinzel).
+- Gold leaf accents and geometric gold lines
+  - Marble texture overlays
+    - Silk or satin fabric elements
+      - Subtle diamond / crystal reflections
+        - Elegant serif typography overlay(optional)
+COLORS: Gold(#D4AF37), Black, Cream(#FFFDD0), Rose Gold.
+  LIGHTING: Golden hour spotlight.Warm, luxurious tones.
+    TYPOGRAPHY:
+- FONT FAMILY: Elegant Serif(Bodoni, Didot, Cinzel).
       - STYLE: High - contrast stroke, sophisticated, expensive.
       - WEIGHT: Regular to Bold.
-    COMPOSITION: Elegant and sophisticated.Subject as the jewel of the composition.
-      VIBE: Chanel No.5, Rolex Ad, Luxury Hotel Campaign.`;
+  COMPOSITION: Elegant and sophisticated.Subject as the jewel of the composition.
+    VIBE: Chanel No.5, Rolex Ad, Luxury Hotel Campaign.`;
 
     // 🔘 MINIMALISTA -> Japanese Zen Premium
     case VisualStyle.MINIMALIST: return `${premiumDesignRules}
       ART DIRECTION: JAPANESE MINIMALISM(Muji / IKEA Premium).
-    BACKGROUND: Natural paper texture OR solid pastel(Beige / Sage / Blush).
+  BACKGROUND: Natural paper texture OR solid pastel(Beige / Sage / Blush).
       DESIGN ELEMENTS:
-  - Extreme negative space
-    - ONE accent color accent shape(circle or line)
-      - Subtle organic shapes(branch shadow, leaf)
-        - Paper fold or origami texture
-  COLORS: Off - White(#FAF9F6), Soft Beige, ONE muted accent(Sage, Terracotta, Dusty Rose).
-    LIGHTING: Soft natural light.Shadow play from windows.
-      TYPOGRAPHY:
-  - FONT FAMILY: Thin Sans, Refined Serif(Montserrat Light, Lato, Playfair Display).
+- Extreme negative space
+  - ONE accent color accent shape(circle or line)
+    - Subtle organic shapes(branch shadow, leaf)
+      - Paper fold or origami texture
+COLORS: Off - White(#FAF9F6), Soft Beige, ONE muted accent(Sage, Terracotta, Dusty Rose).
+  LIGHTING: Soft natural light.Shadow play from windows.
+    TYPOGRAPHY:
+- FONT FAMILY: Thin Sans, Refined Serif(Montserrat Light, Lato, Playfair Display).
       - STYLE: Delicate, airy, spaced out.
       - WEIGHT: Thin to Light.
-    COMPOSITION: Perfect balance.Zen - like harmony.Empty space is intentional.
-      VIBE: Muji Catalog, Japanese Tea Brand, Wellness Retreat.`;
+  COMPOSITION: Perfect balance.Zen - like harmony.Empty space is intentional.
+    VIBE: Muji Catalog, Japanese Tea Brand, Wellness Retreat.`;
 
     // 🔘 TECNOLÓGICO -> Fintech/Crypto Premium
     case VisualStyle.TECH: return `${premiumDesignRules}
       ART DIRECTION: FINTECH / CRYPTO(Revolutionary Tech Style).
-    BACKGROUND: Deep Blue / Purple gradient with data visualization elements.
+  BACKGROUND: Deep Blue / Purple gradient with data visualization elements.
       DESIGN ELEMENTS:
-  - Glassmorphism cards and panels
-    - Data flow lines and node networks
-      - Holographic / iridescent accents
-        - 3D abstract tech shapes(wireframe, mesh)
-          - Floating graphs and charts(abstract)
-  COLORS: Deep Blue(#1E3A8A), Electric Purple(#7C3AED), Cyan glow, White.
-    LIGHTING: Cool blue ambient with accent lights.
-      TYPOGRAPHY:
-  - FONT FAMILY: Monospace, Futuristic Sans(Space Mono, Exo 2, Share Tech Mono).
+- Glassmorphism cards and panels
+  - Data flow lines and node networks
+    - Holographic / iridescent accents
+      - 3D abstract tech shapes(wireframe, mesh)
+        - Floating graphs and charts(abstract)
+COLORS: Deep Blue(#1E3A8A), Electric Purple(#7C3AED), Cyan glow, White.
+  LIGHTING: Cool blue ambient with accent lights.
+    TYPOGRAPHY:
+- FONT FAMILY: Monospace, Futuristic Sans(Space Mono, Exo 2, Share Tech Mono).
       - STYLE: Data - driven, modern, precise.
       - WEIGHT: Medium.
-    COMPOSITION: Tech - forward, dynamic angles, multiple layers of information.
-      VIBE: Stripe, Coinbase, Modern Banking App.`;
+  COMPOSITION: Tech - forward, dynamic angles, multiple layers of information.
+    VIBE: Stripe, Coinbase, Modern Banking App.`;
 
     // 🔘 INFANTIL -> 3D Pixar Premium
     case VisualStyle.INFANTIL: return `${premiumDesignRules}
       ART DIRECTION: 3D CUTE WORLD(Pixar / Nintendo Style).
-    BACKGROUND: Soft pastel gradient OR 3D rendered playroom / clouds.
+  BACKGROUND: Soft pastel gradient OR 3D rendered playroom / clouds.
       DESIGN ELEMENTS:
-  - Soft rounded 3D shapes(balloons, stars, clouds)
-    - Candy / toy textures
-      - Rainbow or pastel color accents
-        - Cute floating elements(hearts, stars, bubbles)
-          - 3D rendered character style
-  COLORS: Pastel Pink, Soft Blue, Mint Green, Sunny Yellow, Lavender.
-    LIGHTING: Soft, warm, friendly.No harsh shadows.
-      TYPOGRAPHY:
-  - FONT FAMILY: Rounded, Bubbly, Handwritten, Fun(Comic Neue, Fredoka One, Chewy, Balsamiq Sans).
+- Soft rounded 3D shapes(balloons, stars, clouds)
+  - Candy / toy textures
+    - Rainbow or pastel color accents
+      - Cute floating elements(hearts, stars, bubbles)
+        - 3D rendered character style
+COLORS: Pastel Pink, Soft Blue, Mint Green, Sunny Yellow, Lavender.
+  LIGHTING: Soft, warm, friendly.No harsh shadows.
+    TYPOGRAPHY:
+- FONT FAMILY: Rounded, Bubbly, Handwritten, Fun(Comic Neue, Fredoka One, Chewy, Balsamiq Sans).
       - STYLE: Playful, friendly, legible for kids.
       - WEIGHT: Bold, Rounded.
-      COMPOSITION: Playful and inviting.Subject surrounded by fun elements.
-        VIBE: Disney +, Nursery Brand, Kids App Promo.`;
+    COMPOSITION: Playful and inviting.Subject surrounded by fun elements.
+      VIBE: Disney +, Nursery Brand, Kids App Promo.`;
 
     // 🔘 UGC INSTAGRAM -> Authentic Influencer (SPECIAL: Popular = Homemade Brazilian Selfie)
     case VisualStyle.UGC_INSTAGRAM:
       // POPULAR CLASS = FOTO CASEIRA BRASILEIRA (Selfie estilo "gente como a gente")
       if (socialClass?.includes('Popular')) {
         return `
-          === ESTILO ESPECIAL: FOTO CASEIRA BRASILEIRA ===
+        === ESTILO ESPECIAL: FOTO CASEIRA BRASILEIRA ===
 
-            CRITICAL: Este é o ÚNICO estilo que deve parecer foto CASEIRA, NÃO PROFISSIONAL.
+          CRITICAL: Este é o ÚNICO estilo que deve parecer foto CASEIRA, NÃO PROFISSIONAL.
           
           TIPO DE FOTO: SELFIE ou foto tirada por amigo / familiar.
           
           CARACTERÍSTICAS OBRIGATÓRIAS:
-  - Câmera: CELULAR COMUM(Samsung médio, Motorola, não iPhone Pro)
-    - Qualidade: Ligeiramente granulada, não perfeita(autêntico)
-      - Iluminação: LUZ NATURAL de janela OU luz fluorescente(levemente esverdeada)
-        - Enquadramento: IMPERFEITO, pessoa levemente cortada ou descentralizada
-          - Fundo: CASA REAL brasileira(sofá, geladeira, quadro na parede, cortina simples)
+- Câmera: CELULAR COMUM(Samsung médio, Motorola, não iPhone Pro)
+  - Qualidade: Ligeiramente granulada, não perfeita(autêntico)
+    - Iluminação: LUZ NATURAL de janela OU luz fluorescente(levemente esverdeada)
+      - Enquadramento: IMPERFEITO, pessoa levemente cortada ou descentralizada
+        - Fundo: CASA REAL brasileira(sofá, geladeira, quadro na parede, cortina simples)
           
           AMBIENTE CASEIRO BRASILEIRO:
-  - Sala de casa simples e LIMPA(não luxuosa, mas digna)
-    - Parede branca ou creme(tijolinho bege bem cuidado)
-      - Sofá de tecido, rack de TV, quadrinho de família
-        - Mesa de cozinha, geladeira atrás, azulejo simples
-          - Quarto simples com cama arrumada, armário de porta
+- Sala de casa simples e LIMPA(não luxuosa, mas digna)
+  - Parede branca ou creme(tijolinho bege bem cuidado)
+    - Sofá de tecido, rack de TV, quadrinho de família
+      - Mesa de cozinha, geladeira atrás, azulejo simples
+        - Quarto simples com cama arrumada, armário de porta
           
           POSE DA PESSOA:
-  - Segurando o celular(selfie) com braço levemente esticado
-    - OU amigo tirou a foto(ângulo frontal caseiro)
-      - Sorriso natural, não posado
-        - Roupa casual do dia - a - dia(camiseta, bermuda, chinelo ok)
+- Segurando o celular(selfie) com braço levemente esticado
+  - OU amigo tirou a foto(ângulo frontal caseiro)
+    - Sorriso natural, não posado
+      - Roupa casual do dia - a - dia(camiseta, bermuda, chinelo ok)
           
           ESTILO DE ILUMINAÇÃO:
-  - Luz de janela durante o dia
-    - OU luz de lâmpada fluorescente(levemente fria / esverdeada)
-      - Sombras suaves naturais, não profissionais
+- Luz de janela durante o dia
+  - OU luz de lâmpada fluorescente(levemente fria / esverdeada)
+    - Sombras suaves naturais, não profissionais
 
-  PROIBIDO:
-  - Ring light profissional
-    - Estúdio fotográfico
-      - Iluminação de cinema
-        - Fotos muito perfeitas
-          - iPhone Pro ou câmera profissional
-            - Casas de luxo ou apartamentos modernos
-              - Filtros pesados de Instagram
+PROIBIDO:
+- Ring light profissional
+  - Estúdio fotográfico
+    - Iluminação de cinema
+      - Fotos muito perfeitas
+        - iPhone Pro ou câmera profissional
+          - Casas de luxo ou apartamentos modernos
+            - Filtros pesados de Instagram
 
-  TYPOGRAPHY(IF APPLICABLE):
-  - FONT FAMILY: System Fonts, Instagram Story Fonts(San Francisco, Roboto, Courier, Neon).
+TYPOGRAPHY(IF APPLICABLE):
+- FONT FAMILY: System Fonts, Instagram Story Fonts(San Francisco, Roboto, Courier, Neon).
   - STYLE: Casual, overlay text style.
   - WEIGHT: Various(Bold match).
 
-    VIBE: "Foto do grupo de família no WhatsApp", "Cliente real mostrando compra", "Depoimento verdadeiro"
-      `;
+  VIBE: "Foto do grupo de família no WhatsApp", "Cliente real mostrando compra", "Depoimento verdadeiro"
+    `;
       }
 
       // CLASSE MÉDIA ou ALTA = UGC Premium (Influencer profissional)
       return `${premiumDesignRules}
       ART DIRECTION: AUTHENTIC INFLUENCER(Real UGC Style).
-    BACKGROUND: Real blurred environment(Cafe, Street, Living Room, Gym) with natural depth.
+  BACKGROUND: Real blurred environment(Cafe, Street, Living Room, Gym) with natural depth.
       DESIGN ELEMENTS:
-  - NO artificial graphics(keep authentic)
-    - Natural bokeh and light leaks
-      - Real - world objects out of focus
-        - Genuine lifestyle setting
-  COLORS: Natural, warm tones.Golden hour palette.
-    LIGHTING: Natural light(window, golden hour, ring light).
-      TYPOGRAPHY:
-  - FONT FAMILY: Modern Sans, Instagram Fonts(Proxima Nova, Aveny - T, Cosmopolitan).
+- NO artificial graphics(keep authentic)
+  - Natural bokeh and light leaks
+    - Real - world objects out of focus
+      - Genuine lifestyle setting
+COLORS: Natural, warm tones.Golden hour palette.
+  LIGHTING: Natural light(window, golden hour, ring light).
+    TYPOGRAPHY:
+- FONT FAMILY: Modern Sans, Instagram Fonts(Proxima Nova, Aveny - T, Cosmopolitan).
       - STYLE: Trendy, influencer aesthetic.
       - WEIGHT: Medium to Bold.
-    COMPOSITION: Selfie - style or friend - took - photo feel.Slightly off - center, candid.
-      VIBE: Instagram Creator, TikTok Testimonial, Real Customer Review.`;
+  COMPOSITION: Selfie - style or friend - took - photo feel.Slightly off - center, candid.
+    VIBE: Instagram Creator, TikTok Testimonial, Real Customer Review.`;
 
     // 🔘 EDITORIAL -> Vogue Fashion Premium
     case VisualStyle.EDITORIAL: return `${premiumDesignRules}
       ART DIRECTION: VOGUE EDITORIAL(High Fashion Magazine).
-    BACKGROUND: Solid color studio backdrop(Bold Red, Electric Blue, Hot Pink) OR dramatic shadows.
+  BACKGROUND: Solid color studio backdrop(Bold Red, Electric Blue, Hot Pink) OR dramatic shadows.
       DESIGN ELEMENTS:
-  - High contrast lighting
-    - Bold color blocking
-      - Minimalist but impactful
-        - Fashion magazine aesthetic
-          - Possible typography overlay(magazine title style)
-  COLORS: ONE bold solid color + Black / White contrast.
-    LIGHTING: Hard flash, dramatic shadows, high contrast.
-      TYPOGRAPHY:
-  - FONT FAMILY: High - Fashion Serif, Didone(Didot, Bodoni, Playfair Display).
+- High contrast lighting
+  - Bold color blocking
+    - Minimalist but impactful
+      - Fashion magazine aesthetic
+        - Possible typography overlay(magazine title style)
+COLORS: ONE bold solid color + Black / White contrast.
+  LIGHTING: Hard flash, dramatic shadows, high contrast.
+    TYPOGRAPHY:
+- FONT FAMILY: High - Fashion Serif, Didone(Didot, Bodoni, Playfair Display).
       - STYLE: Elegant, sharp, magazine cover style.
       - WEIGHT: Bold / Black for titles, Light for captions.
-    COMPOSITION: Fashion model pose.Editorial framing.Magazine cover ready.
-      VIBE: Vogue Cover, Harper's Bazaar, Fashion Campaign.`;
+  COMPOSITION: Fashion model pose.Editorial framing.Magazine cover ready.
+    VIBE: Vogue Cover, Harper's Bazaar, Fashion Campaign.`;
 
     // 🔘 COMERCIAL PREMIUM -> Black Friday Retail
     case VisualStyle.COMMERCIAL_PREMIUM: return `${premiumDesignRules}
