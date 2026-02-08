@@ -103,8 +103,12 @@ const callImageApi = async (
         parts.push({
           text: `[INPUT IMAGE 1: THE DESIGN/ARTWORK]
            >>> THIS IS THE FLAT DESIGN TO BE APPLIED TO THE OBJECT.
-           >>> CRITICAL: PRESERVE LOGO/ART INTEGRITY.
-           >>> ACTION: Warp/Apply this image onto the target object defined in the prompt.
+           >>> COMPOSITION: This image contains a CENTRAL ILLUSTRATION + SURROUNDING TEXT ELEMENTS.
+           >>> CRITICAL WARNING: The TEXT around the main illustration is PART OF THE DESIGN. Do NOT remove it.
+           >>> TEXT COLOR WARNING: There is BLACK TEXT in this image. BLACK TEXT IS NOT NOISE. Do NOT remove black text.
+           >>> NO HALLUCINATION: Do NOT invent new text. Only show EXACTLY what is in this input image.
+           >>> DO NOT CROP ANY PART OF THIS IMAGE. All text (black, red, or any color) MUST appear on the final mockup.
+           >>> ACTION: Apply this WHOLE image (including all text of all colors) onto the target object.
            >>> PERSPECTIVE: The design must follow the curve/surface of the object.`
         });
         parts.push({ inlineData: design });
@@ -392,7 +396,18 @@ Style reference: Adobe Illustrator vector art, professional graphic design quali
 - Overall aesthetic: Match the mood and color palette of this photo
 DO NOT change the person's outfit to corporate/suit unless explicitly requested.`;
           if (studioStyle) {
-            label = `INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE IDENTITY EXACTLY. ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            // Check if it's a Family style
+            const isFamilyStyle = studioStyle.includes('FAMILY');
+            if (isFamilyStyle) {
+              label = `INPUT IMAGE 1: FAMILY/GROUP PHOTO.
+>>> COUNT THE NUMBER OF PEOPLE IN THIS IMAGE. YOU MUST GENERATE EXACTLY THIS SAME NUMBER OF PEOPLE.
+>>> DO NOT ADD CHILDREN OR PEOPLE THAT ARE NOT IN THIS IMAGE.
+>>> DO NOT REMOVE ANY PERSON FROM THIS IMAGE.
+>>> PRESERVE EACH PERSON'S FACE IDENTITY EXACTLY.
+>>> ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            } else {
+              label = `INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE IDENTITY EXACTLY. ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            }
           }
           parts.push({ text: label });
           parts.push({ inlineData: asset });
@@ -406,7 +421,18 @@ DO NOT change the person's outfit to corporate/suit unless explicitly requested.
           } else if (productImage) {
             label = "INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE ONLY. BODY POSE MUST BE CHANGED TO HOLD PRODUCT.";
           } else if (studioStyle) {
-            label = `INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE IDENTITY EXACTLY. ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            // Check if it's a Family style
+            const isFamilyStyle = studioStyle.includes('FAMILY');
+            if (isFamilyStyle) {
+              label = `INPUT IMAGE 1: FAMILY/GROUP PHOTO.
+>>> COUNT THE NUMBER OF PEOPLE IN THIS IMAGE. YOU MUST GENERATE EXACTLY THIS SAME NUMBER OF PEOPLE.
+>>> DO NOT ADD CHILDREN OR PEOPLE THAT ARE NOT IN THIS IMAGE.
+>>> DO NOT REMOVE ANY PERSON FROM THIS IMAGE.
+>>> PRESERVE EACH PERSON'S FACE IDENTITY EXACTLY.
+>>> ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            } else {
+              label = `INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE IDENTITY EXACTLY. ADAPT CLOTHING AND POSE TO MATCH THE "${studioStyle}" STYLE.`;
+            }
           }
           parts.push({ text: label });
           parts.push({ inlineData: asset });
@@ -810,6 +836,8 @@ const getStyleBackground = (style: VisualStyle, variationIndex: number, hasProdu
 const constructPrompt = (config: GenerationConfig, variationIndex: number, customModelImage?: string | null, hasSticker: boolean = false, hasProduct: boolean = false, hasReference: boolean = false): string => {
   const { type, style, studioStyle, mascotStyle, productDescription, aspectRatio, copyText, ctaText, useAiAvatar, isEditableMode, useBoxLayout } = config;
 
+
+
   // MOCKUP MODE LOGIC
   if (type === CreationType.MOCKUP && config.mockupStyle) {
     const mockupStyle = config.mockupStyle;
@@ -822,7 +850,28 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     ITEM TYPE: ${mockupStyle}
     
     INSTRUCTIONS PER STYLE:
-    ${mockupStyle === MockupStyle.TSHIRT ? 'CONTEXT: Fashion photography. Model wearing a T-Shirt. SCENE: Urban or Studio. ACTION: Apply the input design onto the fabric. IMPORTANT: Preserve fabric displacement, folds, and lighting on the design. It must look printed on the shirt, not pasted.' : ''}
+    ${mockupStyle === MockupStyle.TSHIRT ? `CONTEXT: Professional Fashion Photography for E-Commerce.
+    ROLE: Master Product Photographer specialized in Apparel.
+    ACTION: Create a HYPER-REALISTIC mockup photo that looks indistinguishable from a real photograph.
+    
+    === PHOTOREALISM REQUIREMENTS (CRITICAL) ===
+    1. CAMERA: Shot with a Sony A7R IV or Canon EOS R5, 85mm lens, f/2.8 aperture.
+    2. LIGHTING: Professional studio softbox lighting OR natural golden hour light for lifestyle shots.
+    3. FABRIC TEXTURE: Visible cotton weave texture. The design must integrate INTO the fabric, not float on top.
+    4. FABRIC FOLDS: The print must warp and stretch naturally with the fabric folds and body contours.
+    5. SHADOWS: Realistic shadows under the collar, in sleeve creases, and around the print.
+    6. SKIN QUALITY: If a model is present, use realistic skin texture with natural imperfections. No plastic/CGI look.
+    7. ENVIRONMENT: Realistic urban street backdrop OR professional photography studio with seamless paper.
+    
+    === DESIGN APPLICATION ===
+    1. FULL CANVAS MAPPING: Map the ENTIRE input image canvas onto the shirt chest. Do not crop any edges.
+    2. INTEGRATION: The design must look PRINTED on the fabric, not digitally pasted. Apply subtle fabric texture over the design.
+    3. LIGHTING MATCH: The lighting on the design must match the scene lighting (highlights and shadows).
+
+    === CONTRAST ENFORCEMENT ===
+    1. DARK/BLACK ART DETECTED -> FORCE WHITE T-SHIRT (Clean Cotton).
+    2. LIGHT/WHITE ART DETECTED -> FORCE BLACK T-SHIRT.
+    3. DEFAULT SAFETY -> WHITE T-SHIRT.` : ''}
     ${mockupStyle === MockupStyle.BRANDING ? 'CONTEXT: Corporate Identity. SCENE: Elegant desk or clean surface. ITEMS: Business cards, envelope, letterhead. COMPOSITION: Isometric or Overhead flatlay. DEPTH: Shallow depth of field.' : ''}
     ${mockupStyle === MockupStyle.VEHICLE ? 'CONTEXT: Commercial Fleet. SCENE: Outdoors, sunny day. ITEM: Delivery Van or Sedan. ACTION: Apply the design as a full vehicle wrap or decal. RESPECT the vehicle geometry and reflections.' : ''}
     ${mockupStyle === MockupStyle.MUG ? 'CONTEXT: Product shot. SCENE: Cozy coffee table or kitchen counter. ITEM: Ceramic Mug. ACTION: curve the design around the mug cylinder. Add ceramic gloss reflection over the design.' : ''}
@@ -848,9 +897,10 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     2. OVERLAY: The input design must conform to the surface (curved on mugs, folded on shirts).
     3. LIGHTING: The lighting of the design must match the scene.
     4. NO HALLUCINATION: Do not change the text of the design.
+    5. INTEGRITY: Include the ENTIRE art. Do not crop the text around the main element.
 
-    USER CUSTOM INSTRUCTIONS:
-    ${productDescription ? `IMPORTANT OVERRIDE: ${productDescription}` : 'No specific extra instructions.'}
+    MANDATORY USER INSTRUCTIONS (MUST OBEY):
+    ${productDescription ? `>>> USER BRIEFING: "${productDescription}" <<< \nINSTRUCTION: You must strictly follow the user briefing above. If it specifies a color, use it. If it specifies a mood, create it.` : 'No specific extra instructions.'}
     `;
 
     return baseMockupPrompt;

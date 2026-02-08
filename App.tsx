@@ -604,7 +604,7 @@ const App: React.FC = () => {
   };
 
   // CHECKOUT ROUTES (accessible without auth)
-  if (currentPath === '/checkout') {
+  if (currentPath === '/checkout' || currentPath === '/checkout/') {
     return <CheckoutPage onBack={() => navigateTo('/')} />;
   }
 
@@ -627,10 +627,10 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden text-white/90 selection:bg-indigo-500/40">
+    <div className="flex h-screen overflow-hidden text-white/90 selection:bg-indigo-500/40 mobile-stack">
       {/* SIDEBAR */}
-      <aside className="w-[340px] flex-shrink-0 border-r border-white/5 bg-[#080808]/95 backdrop-blur-xl flex flex-col z-20 tech-corners">
-        <header className="p-7 flex items-center justify-between border-b border-white/5 bg-black/20">
+      <aside className="w-[340px] flex-shrink-0 border-r border-white/5 bg-[#080808]/95 backdrop-blur-xl flex flex-col z-20 tech-corners mobile-sidebar tablet-sidebar">
+        <header className="p-7 flex items-center justify-between border-b border-white/5 bg-black/20 mobile-header">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 flex items-center justify-center">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]" />
@@ -939,7 +939,7 @@ const App: React.FC = () => {
       </aside >
 
       {/* MAIN VIEWPORT */}
-      < main className="flex-1 relative flex flex-col bg-transparent overflow-hidden" >
+      < main className="flex-1 relative flex flex-col bg-transparent overflow-hidden mobile-main" >
         <div className={`w-full flex-shrink-0 border-b border-white/10 bg-gradient-to-r from-indigo-950/40 via-[#0a0a0f]/95 to-black/90 backdrop-blur-3xl z-30 transition-all duration-700 ease-in-out relative overflow-hidden ${isStep01Collapsed ? 'h-24 p-3' : 'p-6'}`}>
           {isStep01Collapsed ? (
             <div className="h-full flex items-center justify-between px-8 animate-in fade-in duration-500">
@@ -994,7 +994,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-4 w-full max-w-[1400px]">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-[1400px]">
                   {Object.values(CreationType).map((type) => {
                     const isActive = config.type === type;
                     return (
@@ -1039,7 +1039,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-12 scrollbar-hide bg-[#050505]/20 relative">
+        <div className="flex-1 overflow-y-auto p-12 scrollbar-hide bg-[#050505]/20 relative mobile-main mobile-padding">
           {error && (
             <div className="mb-12 p-8 glass-panel border-red-500/20 rounded-[2.5rem] flex items-start gap-5 text-red-400 max-w-2xl mx-auto animate-in slide-in-from-top-4 duration-500">
               <div className="p-3 bg-red-500/10 rounded-2xl"><AlertCircle size={28} /></div>

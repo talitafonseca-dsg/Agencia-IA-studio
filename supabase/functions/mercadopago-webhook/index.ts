@@ -77,19 +77,32 @@ Deno.serve(async (req: Request) => {
         }
 
         // Extrair informações do pagamento
-        const payerEmail = payment.payer?.email;
+        let payerEmail = payment.payer?.email;
         const externalRef = payment.external_reference;
         let planType = "semestral";
+        let payerName = "";
 
         try {
             const refData = JSON.parse(externalRef);
             planType = refData.plan || "semestral";
+            payerName = refData.name || "";
+            // Se o email não vier no payer (ex: pagou deslogado), usamos o do checkout
+            if (!payerEmail && refData.email) {
+                payerEmail = refData.email;
+                console.log("Using email from external_reference:", payerEmail);
+            } else if (!payerEmail || payerEmail === "XXXXXXXXXXX") {
+                // Mercado Pago às vezes mascara o email
+                if (refData.email) {
+                    payerEmail = refData.email;
+                    console.log("Using email from external_reference (masked payer):", payerEmail);
+                }
+            }
         } catch {
             console.log("Could not parse external_reference, using default plan");
         }
 
-        if (!payerEmail) {
-            console.error("No payer email found");
+        if (!payerEmail || payerEmail === "XXXXXXXXXXX") {
+            console.error("No payer email found in payment or external_reference");
             return new Response("OK", { status: 200 });
         }
 
@@ -119,6 +132,8 @@ Deno.serve(async (req: Request) => {
             },
         });
 
+        let userId = userData?.user?.id || null;
+
         if (userError) {
             // Se usuário já existe, apenas atualiza os metadados
             if (userError.message.includes("already been registered")) {
@@ -129,6 +144,7 @@ Deno.serve(async (req: Request) => {
                 const existingUser = existingUsers?.users?.find(u => u.email === payerEmail);
 
                 if (existingUser) {
+                    userId = existingUser.id;
                     await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
                         user_metadata: {
                             ...existingUser.user_metadata,
@@ -145,9 +161,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Registrar pagamento no banco
-        const userId = userData?.user?.id || null;
-
-        await supabaseAdmin.from("payments").upsert({
+        const { error: insertError } = await supabaseAdmin.from("payments").upsert({
             mercadopago_payment_id: paymentId.toString(),
             mercadopago_preference_id: payment.preference_id,
             payer_email: payerEmail,
@@ -159,17 +173,21 @@ Deno.serve(async (req: Request) => {
             metadata: payment,
         }, { onConflict: "mercadopago_payment_id" });
 
+        if (insertError) {
+            console.error("Error inserting payment:", insertError);
+        }
+
         // Enviar email de boas-vindas com instruções
         try {
             console.log("Sending welcome email via Resend...");
             const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
             const { data: emailData, error: emailError } = await resend.emails.send({
-                from: "Agência IA Studio <onboarding@resend.dev>", // Você deve alterar isso para seu domínio verificado depois
+                from: "Agência IA Studio <noreply@agenciaiastudio.online>",
                 to: [payerEmail],
                 subject: "Bem-vindo à Agência IA Studio! 🚀",
                 html: `
-                    <h1>Parabéns pela sua compra, ${payment.payer?.first_name || "Criador"}!</h1>
+                    <h1>Parabéns pela sua compra, ${payerName || payment.payer?.first_name || "Criador"}!</h1>
                     <p>Seu acesso à <strong>Agência IA Studio</strong> foi liberado com sucesso.</p>
                     <p>Aqui estão seus dados de acesso:</p>
                     <ul>
@@ -177,7 +195,7 @@ Deno.serve(async (req: Request) => {
                         <li><strong>Senha Temporária:</strong> ${DEFAULT_PASSWORD}</li>
                         <li><strong>Plano:</strong> ${planType}</li>
                     </ul>
-                    <p>Acesse agora: <a href="https://agencia-ia-studio.vercel.app">https://agencia-ia-studio.vercel.app</a></p>
+                    <p>Acesse agora: <a href="https://www.agenciaiastudio.online">https://www.agenciaiastudio.online</a></p>
                     <p>Recomendamos que você altere sua senha após o primeiro login.</p>
                     <br>
                     <p>Atenciosamente,<br>Equipe Agência IA Studio</p>

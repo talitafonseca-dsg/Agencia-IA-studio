@@ -52,7 +52,7 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
-        const { plan, payer_email } = await req.json();
+        const { plan, payer_email, payer_name } = await req.json();
 
         if (!plan || !PLANS[plan]) {
             return new Response(
@@ -70,6 +70,9 @@ Deno.serve(async (req: Request) => {
 
         const selectedPlan = PLANS[plan];
 
+        // URL de retorno (domínio de produção)
+        const baseUrl = "https://www.agenciaiastudio.online";
+
         // Criar preferência no Mercado Pago
         const preferenceData = {
             items: [
@@ -86,13 +89,13 @@ Deno.serve(async (req: Request) => {
                 email: payer_email,
             },
             back_urls: {
-                success: `${req.headers.get("origin") || "https://agencia-ia-studio.vercel.app"}/checkout/success`,
-                failure: `${req.headers.get("origin") || "https://agencia-ia-studio.vercel.app"}/checkout/failure`,
-                pending: `${req.headers.get("origin") || "https://agencia-ia-studio.vercel.app"}/checkout/pending`,
+                success: `${baseUrl}/checkout/success`,
+                failure: `${baseUrl}/checkout/failure`,
+                pending: `${baseUrl}/checkout/pending`,
             },
             auto_return: "approved",
             notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
-            external_reference: JSON.stringify({ plan: plan, email: payer_email }),
+            external_reference: JSON.stringify({ plan: plan, email: payer_email, name: payer_name || "" }),
             statement_descriptor: "AGENCIA IA STUDIO",
         };
 
@@ -109,7 +112,7 @@ Deno.serve(async (req: Request) => {
             const errorData = await mpResponse.text();
             console.error("Mercado Pago error:", errorData);
             return new Response(
-                JSON.stringify({ error: "Erro ao criar preferência de pagamento" }),
+                JSON.stringify({ error: `Erro MP v2: ${errorData.substring(0, 200)}` }),
                 { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
         }
@@ -124,10 +127,15 @@ Deno.serve(async (req: Request) => {
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error:", error);
+        const tokenStatus = MP_ACCESS_TOKEN ? "Token Present" : "Token Missing";
+        const urlStatus = SUPABASE_URL ? "URL Present" : "URL Missing";
         return new Response(
-            JSON.stringify({ error: "Erro interno do servidor" }),
+            JSON.stringify({
+                error: `Erro interno: ${error.message || JSON.stringify(error)}`,
+                debug: { token: tokenStatus, url: urlStatus }
+            }),
             { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }

@@ -1,135 +1,275 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AGENCIA IA STUDIO | Creative Intelligence</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <style>
-      :root {
-        --primary: #6366f1;
-        --secondary: #ec4899;
-        --bg-dark: #050505;
-        --panel-bg: rgba(15, 15, 20, 0.85);
-      }
 
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGENCIA IA STUDIO | Creative Intelligence</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --secondary: #ec4899;
+      --bg-dark: #050505;
+      --panel-bg: rgba(15, 15, 20, 0.85);
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-dark);
+      color: #ffffff;
+      overflow: hidden;
+    }
+
+    /* MOBILE RESPONSIVE OVERRIDES */
+    @media (max-width: 768px) {
       body {
-        font-family: 'Inter', sans-serif;
-        background-color: var(--bg-dark);
-        color: #ffffff;
-        overflow: hidden;
+        overflow-y: auto !important;
+        overflow-x: hidden;
       }
 
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 4px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.2);
+      /* Fix main container to stack vertically on mobile */
+      .mobile-stack {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: 100vh;
+        overflow: visible !important;
       }
 
-      .glass-panel {
-        background: var(--panel-bg);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.03);
+      /* Fix sidebar to be full width on mobile */
+      .mobile-sidebar {
+        width: 100% !important;
+        flex-shrink: 1 !important;
+        max-height: none !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
       }
 
-      .tech-corners {
-        position: relative;
-      }
-      .tech-corners::before, .tech-corners::after {
-        content: '';
-        position: absolute;
-        width: 8px;
-        height: 8px;
-        opacity: 0.3;
-      }
-      .tech-corners::before {
-        top: 0; left: 0;
-        border-top: 1px solid var(--primary);
-        border-left: 1px solid var(--primary);
-      }
-      .tech-corners::after {
-        bottom: 0; right: 0;
-        border-bottom: 1px solid var(--primary);
-        border-right: 1px solid var(--primary);
+      /* Fix main content area on mobile */
+      .mobile-main {
+        width: 100% !important;
+        flex: 1 !important;
+        overflow: visible !important;
       }
 
-      .bg-mesh {
-        position: fixed;
-        inset: 0;
-        background-image: 
-          radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 40%),
-          radial-gradient(at 90% 90%, rgba(236, 72, 153, 0.08) 0px, transparent 40%),
-          radial-gradient(at 50% 50%, rgba(10, 10, 15, 1) 0px, rgba(5, 5, 5, 1) 100%);
-        z-index: -1;
+      /* Adjust padding on mobile */
+      .mobile-padding {
+        padding: 1rem !important;
       }
 
-      .active-glow {
-        box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+      /* Fix grid layouts on mobile */
+      .mobile-grid-1 {
+        grid-template-columns: 1fr !important;
       }
 
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-      }
-      .scrollbar-hide {
-        -ms-overflow-style: none;
-        scrollbar-width: none;
+      /* Smaller text on mobile */
+      .mobile-text-sm {
+        font-size: 0.75rem !important;
       }
 
-      @keyframes slide-up {
-        from { transform: translateY(10px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+      /* Fix header on mobile */
+      .mobile-header {
+        padding: 1rem !important;
+        flex-wrap: wrap;
+        gap: 0.5rem;
       }
 
-      @keyframes pulse-glow {
-        0%, 100% { 
-          box-shadow: 0 20px 50px rgba(79, 70, 229, 0.4);
-          transform: scale(1);
-        }
-        50% { 
-          box-shadow: 0 25px 70px rgba(79, 70, 229, 0.8);
-          transform: scale(1.02);
-        }
+      /* Fix results grid on mobile */
+      .mobile-results-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+      }
+    }
+
+    /* Tablet adjustments */
+    @media (min-width: 769px) and (max-width: 1024px) {
+      .tablet-sidebar {
+        width: 280px !important;
+      }
+    }
+
+    /* Touch-friendly improvements for all devices */
+    @media (pointer: coarse) {
+
+      /* Larger touch targets */
+      button,
+      a,
+      input,
+      select,
+      textarea {
+        min-height: 44px;
       }
 
-      @keyframes pulse-ring {
-        0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(236, 72, 153, 0.7); }
-        70% { transform: scale(1.1); opacity: 0.5; box-shadow: 0 0 0 15px rgba(236, 72, 153, 0); }
-        100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0px rgba(236, 72, 153, 0); }
+      /* Better tap feedback */
+      button:active {
+        transform: scale(0.98);
+      }
+    }
+
+    /* Small phone adjustments (iPhone SE, etc) */
+    @media (max-width: 375px) {
+      .mobile-xs-padding {
+        padding: 0.75rem !important;
       }
 
-      @keyframes container-flash {
-        0%, 100% { border-color: rgba(99, 102, 241, 0.05); background-color: transparent; }
-        50% { border-color: rgba(99, 102, 241, 0.4); background-color: rgba(99, 102, 241, 0.03); }
+      .mobile-xs-text {
+        font-size: 0.7rem !important;
+      }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .tech-corners {
+      position: relative;
+    }
+
+    .tech-corners::before,
+    .tech-corners::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      opacity: 0.3;
+    }
+
+    .tech-corners::before {
+      top: 0;
+      left: 0;
+      border-top: 1px solid var(--primary);
+      border-left: 1px solid var(--primary);
+    }
+
+    .tech-corners::after {
+      bottom: 0;
+      right: 0;
+      border-bottom: 1px solid var(--primary);
+      border-right: 1px solid var(--primary);
+    }
+
+    .bg-mesh {
+      position: fixed;
+      inset: 0;
+      background-image:
+        radial-gradient(at 10% 10%, rgba(99, 102, 241, 0.12) 0px, transparent 40%),
+        radial-gradient(at 90% 90%, rgba(236, 72, 153, 0.08) 0px, transparent 40%),
+        radial-gradient(at 50% 50%, rgba(10, 10, 15, 1) 0px, rgba(5, 5, 5, 1) 100%);
+      z-index: -1;
+    }
+
+    .active-glow {
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+    }
+
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+
+    .scrollbar-hide {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    @keyframes slide-up {
+      from {
+        transform: translateY(10px);
+        opacity: 0;
       }
 
-      .animate-pulse-glow {
-        animation: pulse-glow 2s infinite ease-in-out;
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes pulse-glow {
+
+      0%,
+      100% {
+        box-shadow: 0 20px 50px rgba(79, 70, 229, 0.4);
+        transform: scale(1);
       }
 
-      .animate-pulse-ring {
-        animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      50% {
+        box-shadow: 0 25px 70px rgba(79, 70, 229, 0.8);
+        transform: scale(1.02);
+      }
+    }
+
+    @keyframes pulse-ring {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 0 0px rgba(236, 72, 153, 0.7);
       }
 
-      .animate-container-flash {
-        animation: container-flash 2.5s infinite ease-in-out;
+      70% {
+        transform: scale(1.1);
+        opacity: 0.5;
+        box-shadow: 0 0 0 15px rgba(236, 72, 153, 0);
       }
 
-      .animate-slide-up {
-        animation: slide-up 0.4s ease-out forwards;
+      100% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 0 0px rgba(236, 72, 153, 0);
       }
-    </style>
-    <script type="importmap">
+    }
+
+    @keyframes container-flash {
+
+      0%,
+      100% {
+        border-color: rgba(99, 102, 241, 0.05);
+        background-color: transparent;
+      }
+
+      50% {
+        border-color: rgba(99, 102, 241, 0.4);
+        background-color: rgba(99, 102, 241, 0.03);
+      }
+    }
+
+    .animate-pulse-glow {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    .animate-pulse-ring {
+      animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    .animate-container-flash {
+      animation: container-flash 2.5s infinite ease-in-out;
+    }
+
+    .animate-slide-up {
+      animation: slide-up 0.4s ease-out forwards;
+    }
+  </style>
+  <script type="importmap">
     {
       "imports": {
         "lucide-react": "https://esm.sh/lucide-react@^0.474.0",
@@ -142,9 +282,11 @@
     </script>
   <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div class="bg-mesh"></div>
-    <div id="root"></div>
+
+<body>
+  <div class="bg-mesh"></div>
+  <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

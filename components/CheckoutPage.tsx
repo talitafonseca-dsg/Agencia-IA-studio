@@ -53,10 +53,16 @@ const BENEFITS = [
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
     const [selectedPlan, setSelectedPlan] = useState<'semestral' | 'anual' | 'teste'>('anual');
     const [email, setEmail] = useState('');
+    const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const handleCheckout = async () => {
+        if (!name.trim()) {
+            setError('Por favor, insira seu nome');
+            return;
+        }
+
         if (!email) {
             setError('Por favor, insira seu email');
             return;
@@ -73,22 +79,31 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
         try {
             // Chamar Edge Function para criar preferência
             const response = await fetch(
-                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/quick-function`,
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-preference`,
                 {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
                     },
                     body: JSON.stringify({
                         plan: selectedPlan,
                         payer_email: email,
+                        payer_name: name.trim(),
                     }),
                 }
             );
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Erro ao processar pagamento');
+                const errorText = await response.text();
+                let errorMessage;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    errorMessage = errorJson.error || errorJson.message || 'Erro ao processar pagamento';
+                } catch {
+                    errorMessage = `Erro ${response.status}: ${errorText.slice(0, 100)}`;
+                }
+                throw new Error(errorMessage);
             }
 
             const data = await response.json();
@@ -104,14 +119,14 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-6">
+        <div className="fixed inset-0 overflow-y-auto bg-[#0a0a0a] flex flex-col items-center p-6">
             {/* Background Effects */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px]" />
                 <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-pink-600/20 rounded-full blur-[128px]" />
             </div>
 
-            <div className="w-full max-w-4xl relative z-10">
+            <div className="w-full max-w-4xl relative z-10 my-auto">
                 {/* Header */}
                 <div className="text-center mb-12">
                     <div className="flex items-center justify-center gap-3 mb-6">
@@ -133,7 +148,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
 
                 {/* Plans */}
                 <div className="grid md:grid-cols-2 gap-6 mb-10">
-                    {Object.values(PLANS).map((plan) => (
+                    {Object.values(PLANS).filter(p => p.id !== 'teste').map((plan) => (
                         <button
                             key={plan.id}
                             onClick={() => setSelectedPlan(plan.id as 'semestral' | 'anual')}
@@ -204,6 +219,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
                     )}
 
                     <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm text-white/60 mb-2">
+                                Seu nome
+                            </label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Como podemos te chamar?"
+                                className="w-full px-4 py-4 bg-white/5 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none text-white placeholder:text-white/30 text-lg"
+                            />
+                        </div>
+
                         <div>
                             <label className="block text-sm text-white/60 mb-2">
                                 Seu melhor email (você receberá o acesso por aqui)
