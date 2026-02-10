@@ -51,7 +51,11 @@ const BENEFITS = [
 ];
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({ onBack }) => {
-    const [selectedPlan, setSelectedPlan] = useState<'semestral' | 'anual' | 'teste'>('anual');
+    const urlParams = new URLSearchParams(window.location.search);
+    const planParam = urlParams.get('plan');
+    const initialPlan = (planParam === 'semestral' || planParam === 'teste') ? planParam : 'anual';
+
+    const [selectedPlan, setSelectedPlan] = useState<'semestral' | 'anual' | 'teste'>(initialPlan as any);
     const [email, setEmail] = useState('');
     const [name, setName] = useState('');
     const [loading, setLoading] = useState(false);

@@ -630,358 +630,9 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden text-white/90 selection:bg-indigo-500/40 mobile-stack">
+    <div className="flex flex-row-reverse h-screen overflow-hidden text-white/90 selection:bg-indigo-500/40 mobile-stack">
       {/* SIDEBAR */}
-      <aside className="w-[340px] flex-shrink-0 border-r border-white/5 bg-[#080808]/95 backdrop-blur-xl flex flex-col z-20 tech-corners mobile-sidebar tablet-sidebar">
-        <header className="p-7 flex items-center justify-between border-b border-white/5 bg-black/20 mobile-header">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 flex items-center justify-center">
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black tracking-tight leading-none">AGENCIA <span className="text-indigo-500">IA</span></h1>
-              <p className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em] mt-1.5">{t.sidebar.subtitle}</p>
-            </div>
-          </div>
 
-          <div className="flex flex-col items-end gap-2">
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleReset}
-                title={t.sidebar.reset_tooltip}
-                className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all"
-              >
-                <RotateCw size={18} />
-              </button>
-              <button
-                onClick={handleOpenApiKeyDialog}
-                title={t.sidebar.api_tooltip}
-                className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all"
-              >
-                <Key size={18} />
-              </button>
-            </div>
-          </div>
-        </header >
-
-        <div className="flex-1 overflow-y-auto px-7 py-8 space-y-12 scrollbar-hide">
-          <section className="space-y-6">
-            <header className="flex items-center gap-5">
-              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-600 to-pink-500 flex items-center justify-center text-xl font-black text-white shadow-[0_8px_20px_rgba(236,72,153,0.3)] transition-all ${activePulseStep === 2 ? 'animate-pulse-ring' : ''}`}>02</div>
-              <div className="space-y-0.5">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-pink-400">
-                  {isStudioMode ? t.sidebar.step02_studio_title : (isMascotMode ? t.sidebar.step02_mascot_title : (isMockupMode ? 'ESTILO DO MOCKUP' : (isCreativeBackground ? 'REFERÊNCIA VISUAL' : t.sidebar.step02_title)))}
-                </h2>
-                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">{t.sidebar.step02_subtitle}</p>
-              </div>
-            </header>
-
-
-            {/* Show notice when reference image overrides presets */}
-            {(studioRefImage && !isCreativeBackground) && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 text-center">
-                  ⚡ Imagem de referência ativa - presets desativados
-                </p>
-              </div>
-            )}
-
-            <div className={`grid grid-cols-2 gap-2 ${(studioRefImage && !isCreativeBackground) ? 'opacity-30 pointer-events-none' : ''}`}>
-              {isCreativeBackground ? (
-                <div className="col-span-2 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-center space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">MODO CRIATIVO ATIVO</p>
-                  <p className="text-[9px] text-white/40 leading-relaxed">
-                    Neste modo, o estilo será definido 100% pela imagem de referência (Logo ou Grafismo) que você enviar.
-                  </p>
-                </div>
-              ) : isStudioMode ? (
-                Object.values(StudioStyle).map((style) => (
-                  <button
-                    key={style}
-                    onClick={() => { setConfig(prev => ({ ...prev, studioStyle: style })); setActivePulseStep(3); }}
-                    disabled={!!studioRefImage}
-                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${config.studioStyle === style ? 'bg-indigo-600/20 border-indigo-500/50 text-white shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'}`}
-                  >
-                    {style}
-                  </button>
-                ))
-              ) : isMascotMode ? (
-                // MASCOT STYLE SELECTOR
-                Object.values(MascotStyle).map((style) => {
-                  const meta = MascotStyleMeta[style];
-                  const isActive = config.mascotStyle === style;
-                  return (
-                    <button
-                      key={style}
-                      onClick={() => { setConfig(prev => ({ ...prev, mascotStyle: style })); setActivePulseStep(3); }}
-                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all overflow-hidden aspect-square ${isActive ? `bg-orange-500/20 border-orange-500/50 text-white shadow-[0_0_15px_rgba(249,115,22,0.2)]` : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
-                    >
-                      <img src={meta.imageUrl} className={`absolute inset-0 w-full h-full object-cover transition-all opacity-40 group-hover:opacity-60 ${isActive ? 'opacity-60 scale-110' : 'grayscale'}`} />
-                      <div className="absolute inset-0 bg-black/40"></div>
-                      <span className="relative z-10 text-[9px] font-black uppercase text-center leading-tight">{style}</span>
-                    </button> // End Mascot Button
-                  );
-                })
-              ) : isMockupMode ? (
-                // MOCKUP STYLE SELECTOR
-                Object.values(MockupStyle).map((style) => {
-                  const meta = MockupStyleMeta[style];
-                  const isActive = config.mockupStyle === style;
-                  return (
-                    <button
-                      key={style}
-                      onClick={() => { setConfig(prev => ({ ...prev, mockupStyle: style })); setActivePulseStep(3); }}
-                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all overflow-hidden aspect-square ${isActive ? `bg-emerald-500/20 border-emerald-500/50 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]` : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
-                    >
-                      <img src={meta.imageUrl} className={`absolute inset-0 w-full h-full object-cover transition-all opacity-40 group-hover:opacity-60 ${isActive ? 'opacity-60 scale-110' : 'grayscale'}`} />
-                      <div className="absolute inset-0 bg-black/40"></div>
-                      <span className="relative z-10 text-[9px] font-black uppercase text-center leading-tight">{style}</span>
-                    </button>
-                  );
-                })
-              ) : (
-                Object.values(VisualStyle).map((style) => (
-                  <button
-                    key={style}
-                    onClick={() => { setConfig(prev => ({ ...prev, style })); setActivePulseStep(3); }}
-                    disabled={!!studioRefImage}
-                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${config.style === style ? 'bg-pink-600/20 border-pink-500/50 text-white shadow-[0_0_15px_rgba(236,72,153,0.1)]' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'}`}
-                  >
-                    {style}
-                  </button>
-                ))
-              )}
-            </div>
-
-            {/* MOCKUP REFERENCE IMAGE UPLOAD */}
-            {isMockupMode && (
-              <div className="mt-4 p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-500/20">
-                <div className="flex items-center gap-2 mb-3">
-                  <ImageIcon size={16} className="text-amber-400" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
-                    Referência do Objeto (Opcional)
-                  </span>
-                </div>
-                <p className="text-[9px] text-white/40 mb-3">
-                  Envie uma foto do veículo/objeto exato que deseja usar. A IA copiará o modelo visual.
-                </p>
-
-                {mockupReferenceImage ? (
-                  <div className="relative">
-                    <img
-                      src={mockupReferenceImage}
-                      alt="Referência"
-                      className="w-full h-24 object-contain rounded-xl border border-amber-500/30 bg-black/30"
-                    />
-                    <button
-                      onClick={() => setMockupReferenceImage(null)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-400 transition-all"
-                    >
-                      <X size={12} className="text-white" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-500/30 rounded-xl cursor-pointer hover:bg-amber-500/10 transition-all">
-                    <Upload size={20} className="text-amber-400 mb-2" />
-                    <span className="text-[9px] text-amber-400 font-bold">ENVIAR FOTO DO VEÍCULO/OBJETO</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e, 'mockupReference')}
-                    />
-                  </label>
-                )}
-              </div>
-            )}
-          </section>
-
-          <section className={`space-y-6 p-4 rounded-3xl border border-transparent transition-all ${activePulseStep === 3 ? 'animate-container-flash' : ''}`}>
-            <header className="flex items-center gap-5">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center text-xl font-black text-white shadow-[0_8px_20px_rgba(79,70,229,0.3)]">03</div>
-              <div className="space-y-0.5">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">{t.sidebar.step03_title}</h2>
-                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">{t.sidebar.step03_subtitle}</p>
-              </div>
-            </header>
-
-            <div className="space-y-4">
-
-
-
-              {/* Avatar IA Toggle - Always Visible unless Custom Model is uploaded or Mascot Mode */}
-              {!isMascotMode && !isMockupMode && !isCreativeBackground && (
-                <div className={`flex items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/5 ${customModelImage ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <div className="flex items-center gap-3 flex-1">
-                    <User size={18} className="text-indigo-400" />
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black uppercase tracking-widest">{t.sidebar.create_avatar}</span>
-                      {uploadedImage && <span className="text-[8px] text-red-400 font-bold uppercase">{t.sidebar.avatar_disabled}</span>}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => !customModelImage && setConfig(prev => ({ ...prev, useAiAvatar: !prev.useAiAvatar }))}
-                    disabled={!!customModelImage}
-                    className={`w-12 h-6 rounded-full transition-all relative ${config.useAiAvatar && !customModelImage ? 'bg-indigo-600' : 'bg-white/10'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.useAiAvatar && !customModelImage ? 'left-7' : 'left-1'}`}></div>
-                  </button>
-                </div>
-              )}
-
-
-              {/* GLOBAL MODEL SELECTOR - Visible if AI Avatar is ON */}
-              {!isMascotMode && !isMockupMode && !isCreativeBackground && config.useAiAvatar && !customModelImage && (
-                <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5 animate-in slide-in-from-top-3">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">{t.sidebar.ugc_model_label}</label>
-                  <div className="flex flex-col gap-2">
-                    {Object.values(UGCModel).map((model) => (
-                      <button
-                        key={model}
-                        onClick={() => setConfig(prev => ({ ...prev, ugcModel: model }))}
-                        className={`w-full py-2 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider text-left transition-all ${config.ugcModel === model ? 'bg-emerald-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
-                      >
-                        {model}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!isStudioMode && !isMascotMode && !isMockupMode && !isCreativeBackground && (
-                <>
-                  {/* Social Class Selector - ONLY FOR UGC */}
-                  {/* Social Class & Environment - ONLY FOR UGC */}
-                  {config.style === VisualStyle.UGC_INSTAGRAM && (
-                    <>
-                      <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-400">{t.sidebar.social_class_label}</label>
-                        <div className="flex flex-col gap-2">
-                          {Object.values(SocialClass).map((cls) => (
-                            <button
-                              key={cls}
-                              onClick={() => setConfig(prev => ({ ...prev, socialClass: cls }))}
-                              className={`w-full py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider text-left transition-all ${config.socialClass === cls ? 'bg-pink-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
-                            >
-                              {cls}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5 animate-in slide-in-from-top-2">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{t.sidebar.ugc_environment_label}</label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.values(UGCEnvironment).map((env) => (
-                            <button
-                              key={env}
-                              onClick={() => setConfig(prev => ({ ...prev, ugcEnvironment: env, customEnvironment: '' }))}
-                              className={`w-full py-2 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider text-center transition-all ${config.ugcEnvironment === env && !config.customEnvironment ? 'bg-cyan-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
-                            >
-                              {env.split(' / ')[0]}
-                            </button>
-                          ))}
-                        </div>
-                        {/* Custom Environment Input */}
-                        <input
-                          type="text"
-                          value={config.customEnvironment || ''}
-                          onChange={(e) => setConfig(prev => ({ ...prev, customEnvironment: e.target.value, ugcEnvironment: undefined }))}
-                          placeholder={t.sidebar.ugc_custom_env_placeholder}
-                          className={`w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[10px] text-white focus:border-cyan-500 focus:bg-cyan-900/10 outline-none transition-all placeholder:text-white/20 ${config.customEnvironment ? 'border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.1)]' : ''}`}
-                        />
-                      </div>
-
-
-                    </>
-                  )}
-
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">{t.sidebar.headline_label}</label>
-                      <p className="text-[9px] text-white/30">{t.sidebar.headline_desc}</p>
-                    </div>
-                    <textarea
-                      value={config.copyText}
-                      onChange={(e) => setConfig(prev => ({ ...prev, copyText: e.target.value }))}
-                      placeholder={config.style === VisualStyle.UGC_INSTAGRAM ? t.sidebar.headline_placeholder_ugc : t.sidebar.headline_placeholder}
-                      disabled={config.style === VisualStyle.UGC_INSTAGRAM}
-                      rows={3}
-                      className={`w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-white text-xs focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-white/20 font-medium resize-none ${config.style === VisualStyle.UGC_INSTAGRAM ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">{t.sidebar.cta_label}</label>
-                      <p className="text-[9px] text-white/30">{t.sidebar.cta_desc}</p>
-                    </div>
-                    <input
-                      type="text"
-                      value={config.ctaText}
-                      onChange={(e) => setConfig(prev => ({ ...prev, ctaText: e.target.value }))}
-                      placeholder={t.sidebar.cta_placeholder}
-                      disabled={config.style === VisualStyle.UGC_INSTAGRAM}
-                      className={`w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs font-bold focus:border-indigo-500 outline-none transition-all placeholder:text-white/10 ${config.style === VisualStyle.UGC_INSTAGRAM ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    />
-                  </div>
-
-
-
-
-                </>
-              )}
-
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-400">
-                    {isStudioMode ? t.sidebar.briefing_label_studio : (isMascotMode ? t.sidebar.briefing_label_mascot : (isMockupMode ? 'INSTRUÇÃO EXTRA (OPCIONAL)' : (isCreativeBackground ? 'DETALHES DO BACKGROUND' : t.sidebar.briefing_label)))}
-                  </label>
-                  <p className="text-[9px] text-white/30">{t.sidebar.briefing_desc}</p>
-                </div>
-                <textarea
-                  value={config.productDescription}
-                  onChange={(e) => setConfig(prev => ({ ...prev, productDescription: e.target.value }))}
-                  placeholder={isStudioMode ? t.sidebar.briefing_placeholder_studio : (isMascotMode ? t.sidebar.briefing_placeholder_mascot : (isMockupMode ? 'Descreva detalhes do acabamento, material ou iluminação...' : t.sidebar.briefing_placeholder))}
-                  className="w-full h-32 bg-white/5 border border-white/5 rounded-2xl p-4 text-xs font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/30 outline-none placeholder:text-white/10 transition-all leading-relaxed resize-none shadow-inner"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50">{t.sidebar.variations_label}</label>
-                  <p className="text-[9px] text-white/30">{t.sidebar.variations_desc}</p>
-                </div>
-                <div className="flex gap-2">
-                  {[1, 2, 3].map((count) => (
-                    <button
-                      key={count}
-                      onClick={() => setConfig(prev => ({ ...prev, designCount: count }))}
-                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all border ${config.designCount === count ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : 'bg-white/5 text-white/30 border-white/5 hover:bg-white/10'}`}
-                    >
-                      {count} {count === 1 ? 'Opção' : 'Opções'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <div className="p-8 border-t border-white/5 bg-[#0a0a0a] relative">
-          <button
-            onClick={handleGenerate}
-            disabled={isGenerating || !isReady}
-            className={`w-full py-5 rounded-2xl font-black flex items-center justify-center gap-3 transition-all tech-corners active:scale-[0.98] ${isGenerating ? 'bg-white/5' : isReady ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-[0_20px_50px_rgba(79,70,229,0.4)] opacity-100 animate-pulse-glow' : 'bg-white/5 text-white/20 border border-white/5 opacity-50 cursor-not-allowed'}`}
-          >
-            {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} fill={isReady ? "currentColor" : "none"} className={isReady ? "" : "opacity-10"} />}
-            <span className="text-[11px] uppercase tracking-[0.3em] font-black">
-              {isGenerating ? t.sidebar.processing : isCreativeBackground ? "GERAR ARTES CRIATIVAS" : t.sidebar.generate_btn}
-            </span>
-          </button>
-        </div>
-      </aside >
 
       {/* MAIN VIEWPORT */}
       < main className="flex-1 relative flex flex-col bg-transparent overflow-hidden mobile-main" >
@@ -1001,8 +652,8 @@ const App: React.FC = () => {
               <button onClick={() => setIsStep01Collapsed(false)} className="px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-[10px] font-black uppercase tracking-[0.3em] transition-all flex items-center gap-3">{t.main.configurations} <ChevronDown size={14} /></button>
             </div>
           ) : (
-            <div className="flex gap-10 items-start">
-              <div className="flex-shrink-0 flex items-center gap-6 px-8 border-r border-white/10 py-2">
+            <div className="flex flex-col md:flex-row gap-4 md:gap-10 items-start">
+              <div className="flex-shrink-0 flex items-center gap-6 px-4 md:px-8 border-b md:border-b-0 md:border-r border-white/10 py-2 w-full md:w-auto justify-between md:justify-start">
                 <button onClick={() => setIsStep01Collapsed(!isStep01Collapsed)} className="w-16 h-16 rounded-full bg-indigo-600 border-4 border-indigo-400/30 flex items-center justify-center text-3xl font-black text-white shadow-[0_0_30px_rgba(99,102,241,0.5)] transform hover:scale-105 transition-transform">01</button>
                 <div className="space-y-1">
                   <p className="text-[12px] font-black uppercase tracking-[0.4em] text-white/80 leading-none">{t.main.step01_label}</p>
@@ -1039,13 +690,13 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-[1400px]">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-4 w-full max-w-[1400px]">
                   {Object.values(CreationType).map((type) => {
                     const isActive = config.type === type;
                     return (
-                      <button key={type} onClick={() => handleTypeChange(type)} className={`flex items-center gap-4 px-6 py-5 rounded-2xl border transition-all duration-300 ${isActive ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-[0_0_25px_rgba(99,102,241,0.25)]' : 'bg-white/[0.03] border-white/5 text-white/30 hover:bg-white/[0.08] hover:border-white/20'}`}>
+                      <button key={type} onClick={() => handleTypeChange(type)} className={`flex items-center gap-3 md:gap-4 px-3 py-3 md:px-6 md:py-5 rounded-xl md:rounded-2xl border transition-all duration-300 ${isActive ? 'bg-indigo-600/30 border-indigo-400 text-white shadow-[0_0_25px_rgba(99,102,241,0.25)]' : 'bg-white/[0.03] border-white/5 text-white/30 hover:bg-white/[0.08] hover:border-white/20'}`}>
                         <div className={`flex-shrink-0 ${isActive ? 'text-indigo-400' : 'text-white/10'}`}>{getTypeIcon(type)}</div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] truncate">{type}</span>
+                        <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.2em] truncate text-left leading-tight">{type}</span>
                       </button>
                     );
                   })}
@@ -1621,6 +1272,358 @@ const App: React.FC = () => {
           }
         </div >
       </main >
+
+      {/* SIDEBAR (Moved after Main for Mobile Order 1-2-3) */}
+      <aside className="w-[340px] flex-shrink-0 border-r border-white/5 bg-[#080808]/95 backdrop-blur-xl flex flex-col z-20 tech-corners mobile-sidebar tablet-sidebar">
+        <header className="p-7 flex items-center justify-between border-b border-white/5 bg-black/20 mobile-header">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 flex items-center justify-center">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(236,72,153,0.5)]" />
+            </div>
+            <div>
+              <h1 className="text-lg font-black tracking-tight leading-none">AGENCIA <span className="text-indigo-500">IA</span></h1>
+              <p className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em] mt-1.5">{t.sidebar.subtitle}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                title={t.sidebar.reset_tooltip}
+                className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all"
+              >
+                <RotateCw size={18} />
+              </button>
+              <button
+                onClick={handleOpenApiKeyDialog}
+                title={t.sidebar.api_tooltip}
+                className="p-2 hover:bg-white/5 rounded-lg text-white/20 hover:text-white transition-all"
+              >
+                <Key size={18} />
+              </button>
+            </div>
+          </div>
+        </header >
+
+        <div className="flex-1 overflow-y-auto px-7 py-8 space-y-12 scrollbar-hide">
+          <section className="space-y-6">
+            <header className="flex items-center gap-5">
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-600 to-pink-500 flex items-center justify-center text-xl font-black text-white shadow-[0_8px_20px_rgba(236,72,153,0.3)] transition-all ${activePulseStep === 2 ? 'animate-pulse-ring' : ''}`}>02</div>
+              <div className="space-y-0.5">
+                <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-pink-400">
+                  {isStudioMode ? t.sidebar.step02_studio_title : (isMascotMode ? t.sidebar.step02_mascot_title : (isMockupMode ? 'ESTILO DO MOCKUP' : (isCreativeBackground ? 'REFERÊNCIA VISUAL' : t.sidebar.step02_title)))}
+                </h2>
+                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">{t.sidebar.step02_subtitle}</p>
+              </div>
+            </header>
+
+
+            {/* Show notice when reference image overrides presets */}
+            {(studioRefImage && !isCreativeBackground) && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400 text-center">
+                  ⚡ Imagem de referência ativa - presets desativados
+                </p>
+              </div>
+            )}
+
+            <div className={`grid grid-cols-2 gap-2 ${(studioRefImage && !isCreativeBackground) ? 'opacity-30 pointer-events-none' : ''}`}>
+              {isCreativeBackground ? (
+                <div className="col-span-2 p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-center space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-cyan-400">MODO CRIATIVO ATIVO</p>
+                  <p className="text-[9px] text-white/40 leading-relaxed">
+                    Neste modo, o estilo será definido 100% pela imagem de referência (Logo ou Grafismo) que você enviar.
+                  </p>
+                </div>
+              ) : isStudioMode ? (
+                Object.values(StudioStyle).map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => { setConfig(prev => ({ ...prev, studioStyle: style })); setActivePulseStep(3); }}
+                    disabled={!!studioRefImage}
+                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${config.studioStyle === style ? 'bg-indigo-600/20 border-indigo-500/50 text-white shadow-[0_0_15px_rgba(99,102,241,0.1)]' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'}`}
+                  >
+                    {style}
+                  </button>
+                ))
+              ) : isMascotMode ? (
+                // MASCOT STYLE SELECTOR
+                Object.values(MascotStyle).map((style) => {
+                  const meta = MascotStyleMeta[style];
+                  const isActive = config.mascotStyle === style;
+                  return (
+                    <button
+                      key={style}
+                      onClick={() => { setConfig(prev => ({ ...prev, mascotStyle: style })); setActivePulseStep(3); }}
+                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all overflow-hidden aspect-square ${isActive ? `bg-orange-500/20 border-orange-500/50 text-white shadow-[0_0_15px_rgba(249,115,22,0.2)]` : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
+                    >
+                      <img src={meta.imageUrl} className={`absolute inset-0 w-full h-full object-cover transition-all opacity-40 group-hover:opacity-60 ${isActive ? 'opacity-60 scale-110' : 'grayscale'}`} />
+                      <div className="absolute inset-0 bg-black/40"></div>
+                      <span className="relative z-10 text-[9px] font-black uppercase text-center leading-tight">{style}</span>
+                    </button> // End Mascot Button
+                  );
+                })
+              ) : isMockupMode ? (
+                // MOCKUP STYLE SELECTOR
+                Object.values(MockupStyle).map((style) => {
+                  const meta = MockupStyleMeta[style];
+                  const isActive = config.mockupStyle === style;
+                  return (
+                    <button
+                      key={style}
+                      onClick={() => { setConfig(prev => ({ ...prev, mockupStyle: style })); setActivePulseStep(3); }}
+                      className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all overflow-hidden aspect-square ${isActive ? `bg-emerald-500/20 border-emerald-500/50 text-white shadow-[0_0_15px_rgba(16,185,129,0.2)]` : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10'}`}
+                    >
+                      <img src={meta.imageUrl} className={`absolute inset-0 w-full h-full object-cover transition-all opacity-40 group-hover:opacity-60 ${isActive ? 'opacity-60 scale-110' : 'grayscale'}`} />
+                      <div className="absolute inset-0 bg-black/40"></div>
+                      <span className="relative z-10 text-[9px] font-black uppercase text-center leading-tight">{style}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                Object.values(VisualStyle).map((style) => (
+                  <button
+                    key={style}
+                    onClick={() => { setConfig(prev => ({ ...prev, style })); setActivePulseStep(3); }}
+                    disabled={!!studioRefImage}
+                    className={`px-3 py-2.5 rounded-xl border text-[10px] font-bold transition-all ${config.style === style ? 'bg-pink-600/20 border-pink-500/50 text-white shadow-[0_0_15px_rgba(236,72,153,0.1)]' : 'bg-white/5 border-white/5 text-white/30 hover:bg-white/10 hover:text-white/50'}`}
+                  >
+                    {style}
+                  </button>
+                ))
+              )}
+            </div>
+
+            {/* MOCKUP REFERENCE IMAGE UPLOAD */}
+            {isMockupMode && (
+              <div className="mt-4 p-4 bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <ImageIcon size={16} className="text-amber-400" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                    Referência do Objeto (Opcional)
+                  </span>
+                </div>
+                <p className="text-[9px] text-white/40 mb-3">
+                  Envie uma foto do veículo/objeto exato que deseja usar. A IA copiará o modelo visual.
+                </p>
+
+                {mockupReferenceImage ? (
+                  <div className="relative">
+                    <img
+                      src={mockupReferenceImage}
+                      alt="Referência"
+                      className="w-full h-24 object-contain rounded-xl border border-amber-500/30 bg-black/30"
+                    />
+                    <button
+                      onClick={() => setMockupReferenceImage(null)}
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shadow-lg hover:bg-red-400 transition-all"
+                    >
+                      <X size={12} className="text-white" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-amber-500/30 rounded-xl cursor-pointer hover:bg-amber-500/10 transition-all">
+                    <Upload size={20} className="text-amber-400 mb-2" />
+                    <span className="text-[9px] text-amber-400 font-bold">ENVIAR FOTO DO VEÍCULO/OBJETO</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e, 'mockupReference')}
+                    />
+                  </label>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className={`space-y-6 p-4 rounded-3xl border border-transparent transition-all ${activePulseStep === 3 ? 'animate-container-flash' : ''}`}>
+            <header className="flex items-center gap-5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-500 flex items-center justify-center text-xl font-black text-white shadow-[0_8px_20px_rgba(79,70,229,0.3)]">03</div>
+              <div className="space-y-0.5">
+                <h2 className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-400">{t.sidebar.step03_title}</h2>
+                <p className="text-[9px] text-white/20 font-bold uppercase tracking-widest">{t.sidebar.step03_subtitle}</p>
+              </div>
+            </header>
+
+            <div className="space-y-4">
+
+
+
+              {/* Avatar IA Toggle - Always Visible unless Custom Model is uploaded or Mascot Mode */}
+              {!isMascotMode && !isMockupMode && !isCreativeBackground && (
+                <div className={`flex items-center justify-center p-4 bg-white/5 rounded-2xl border border-white/5 ${customModelImage ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <div className="flex items-center gap-3 flex-1">
+                    <User size={18} className="text-indigo-400" />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-widest">{t.sidebar.create_avatar}</span>
+                      {uploadedImage && <span className="text-[8px] text-red-400 font-bold uppercase">{t.sidebar.avatar_disabled}</span>}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => !customModelImage && setConfig(prev => ({ ...prev, useAiAvatar: !prev.useAiAvatar }))}
+                    disabled={!!customModelImage}
+                    className={`w-12 h-6 rounded-full transition-all relative ${config.useAiAvatar && !customModelImage ? 'bg-indigo-600' : 'bg-white/10'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${config.useAiAvatar && !customModelImage ? 'left-7' : 'left-1'}`}></div>
+                  </button>
+                </div>
+              )}
+
+
+              {/* GLOBAL MODEL SELECTOR - Visible if AI Avatar is ON */}
+              {!isMascotMode && !isMockupMode && !isCreativeBackground && config.useAiAvatar && !customModelImage && (
+                <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5 animate-in slide-in-from-top-3">
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">{t.sidebar.ugc_model_label}</label>
+                  <div className="flex flex-col gap-2">
+                    {Object.values(UGCModel).map((model) => (
+                      <button
+                        key={model}
+                        onClick={() => setConfig(prev => ({ ...prev, ugcModel: model }))}
+                        className={`w-full py-2 px-3 rounded-lg text-[9px] font-bold uppercase tracking-wider text-left transition-all ${config.ugcModel === model ? 'bg-emerald-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
+                      >
+                        {model}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!isStudioMode && !isMascotMode && !isMockupMode && !isCreativeBackground && (
+                <>
+                  {/* Social Class Selector - ONLY FOR UGC */}
+                  {/* Social Class & Environment - ONLY FOR UGC */}
+                  {config.style === VisualStyle.UGC_INSTAGRAM && (
+                    <>
+                      <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-pink-400">{t.sidebar.social_class_label}</label>
+                        <div className="flex flex-col gap-2">
+                          {Object.values(SocialClass).map((cls) => (
+                            <button
+                              key={cls}
+                              onClick={() => setConfig(prev => ({ ...prev, socialClass: cls }))}
+                              className={`w-full py-2 px-3 rounded-lg text-[10px] font-bold uppercase tracking-wider text-left transition-all ${config.socialClass === cls ? 'bg-pink-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
+                            >
+                              {cls}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 p-3 rounded-xl bg-white/5 border border-white/5 animate-in slide-in-from-top-2">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">{t.sidebar.ugc_environment_label}</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.values(UGCEnvironment).map((env) => (
+                            <button
+                              key={env}
+                              onClick={() => setConfig(prev => ({ ...prev, ugcEnvironment: env, customEnvironment: '' }))}
+                              className={`w-full py-2 px-2 rounded-lg text-[9px] font-bold uppercase tracking-wider text-center transition-all ${config.ugcEnvironment === env && !config.customEnvironment ? 'bg-cyan-600 text-white shadow-lg' : 'bg-black/20 text-white/40 hover:bg-white/10 hover:text-white'}`}
+                            >
+                              {env.split(' / ')[0]}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Custom Environment Input */}
+                        <input
+                          type="text"
+                          value={config.customEnvironment || ''}
+                          onChange={(e) => setConfig(prev => ({ ...prev, customEnvironment: e.target.value, ugcEnvironment: undefined }))}
+                          placeholder={t.sidebar.ugc_custom_env_placeholder}
+                          className={`w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[10px] text-white focus:border-cyan-500 focus:bg-cyan-900/10 outline-none transition-all placeholder:text-white/20 ${config.customEnvironment ? 'border-cyan-500/50 shadow-[0_0_10px_rgba(6,182,212,0.1)]' : ''}`}
+                        />
+                      </div>
+
+
+                    </>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">{t.sidebar.headline_label}</label>
+                      <p className="text-[9px] text-white/30">{t.sidebar.headline_desc}</p>
+                    </div>
+                    <textarea
+                      value={config.copyText}
+                      onChange={(e) => setConfig(prev => ({ ...prev, copyText: e.target.value }))}
+                      placeholder={config.style === VisualStyle.UGC_INSTAGRAM ? t.sidebar.headline_placeholder_ugc : t.sidebar.headline_placeholder}
+                      disabled={config.style === VisualStyle.UGC_INSTAGRAM}
+                      rows={3}
+                      className={`w-full bg-[#050505] border border-white/10 rounded-xl px-4 py-3 text-white text-xs focus:ring-1 focus:ring-indigo-500 outline-none placeholder:text-white/20 font-medium resize-none ${config.style === VisualStyle.UGC_INSTAGRAM ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400">{t.sidebar.cta_label}</label>
+                      <p className="text-[9px] text-white/30">{t.sidebar.cta_desc}</p>
+                    </div>
+                    <input
+                      type="text"
+                      value={config.ctaText}
+                      onChange={(e) => setConfig(prev => ({ ...prev, ctaText: e.target.value }))}
+                      placeholder={t.sidebar.cta_placeholder}
+                      disabled={config.style === VisualStyle.UGC_INSTAGRAM}
+                      className={`w-full bg-white/5 border border-white/5 rounded-xl p-4 text-xs font-bold focus:border-indigo-500 outline-none transition-all placeholder:text-white/10 ${config.style === VisualStyle.UGC_INSTAGRAM ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    />
+                  </div>
+
+
+
+
+                </>
+              )}
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-400">
+                    {isStudioMode ? t.sidebar.briefing_label_studio : (isMascotMode ? t.sidebar.briefing_label_mascot : (isMockupMode ? 'INSTRUÇÃO EXTRA (OPCIONAL)' : (isCreativeBackground ? 'DETALHES DO BACKGROUND' : t.sidebar.briefing_label)))}
+                  </label>
+                  <p className="text-[9px] text-white/30">{t.sidebar.briefing_desc}</p>
+                </div>
+                <textarea
+                  value={config.productDescription}
+                  onChange={(e) => setConfig(prev => ({ ...prev, productDescription: e.target.value }))}
+                  placeholder={isStudioMode ? t.sidebar.briefing_placeholder_studio : (isMascotMode ? t.sidebar.briefing_placeholder_mascot : (isMockupMode ? 'Descreva detalhes do acabamento, material ou iluminação...' : t.sidebar.briefing_placeholder))}
+                  className="w-full h-32 bg-white/5 border border-white/5 rounded-2xl p-4 text-xs font-medium focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/30 outline-none placeholder:text-white/10 transition-all leading-relaxed resize-none shadow-inner"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50">{t.sidebar.variations_label}</label>
+                  <p className="text-[9px] text-white/30">{t.sidebar.variations_desc}</p>
+                </div>
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((count) => (
+                    <button
+                      key={count}
+                      onClick={() => setConfig(prev => ({ ...prev, designCount: count }))}
+                      className={`flex-1 py-3 rounded-xl text-xs font-bold transition-all border ${config.designCount === count ? 'bg-indigo-600 text-white border-indigo-500 shadow-lg' : 'bg-white/5 text-white/30 border-white/5 hover:bg-white/10'}`}
+                    >
+                      {count} {count === 1 ? 'Opção' : 'Opções'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="p-8 border-t border-white/5 bg-[#0a0a0a] relative">
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating || !isReady}
+            className={`w-full py-5 rounded-2xl font-black flex items-center justify-center gap-3 transition-all tech-corners active:scale-[0.98] ${isGenerating ? 'bg-white/5' : isReady ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 shadow-[0_20px_50px_rgba(79,70,229,0.4)] opacity-100 animate-pulse-glow' : 'bg-white/5 text-white/20 border border-white/5 opacity-50 cursor-not-allowed'}`}
+          >
+            {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Zap size={20} fill={isReady ? "currentColor" : "none"} className={isReady ? "" : "opacity-10"} />}
+            <span className="text-[11px] uppercase tracking-[0.3em] font-black">
+              {isGenerating ? t.sidebar.processing : isCreativeBackground ? "GERAR ARTES CRIATIVAS" : t.sidebar.generate_btn}
+            </span>
+          </button>
+        </div>
+      </aside >
 
       {editingImage && (
         <TextEditor
