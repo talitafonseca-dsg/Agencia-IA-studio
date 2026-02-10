@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Type, Move, Palette, ArrowRight, Sun, Layers, Droplet, Plus, Trash2, AlignLeft, AlignCenter, AlignRight, Square, Image as ImageIcon, Upload, Sparkles, Loader2, Copy } from 'lucide-react';
+import { X, Check, Type, Move, Palette, ArrowRight, Sun, Layers, Droplet, Plus, Trash2, AlignLeft, AlignCenter, AlignRight, Square, Image as ImageIcon, Upload, Sparkles, Loader2, Copy, Scissors, Eraser } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import { editGeneratedImage } from '../services/geminiService';
+import { removeBackground } from "@imgly/background-removal";
 
 
 
@@ -53,7 +54,7 @@ interface TextEditorProps {
     aspectRatio: string;
 }
 
-export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, initialText, onClose, onSave, onUpdate, aspectRatio }) => {
+export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, initialText, onClose, onSave, onUpdate, onMagicEdit, aspectRatio }) => {
     // LAYERS STATE
     const [layers, setLayers] = useState<Layer[]>(initialLayers || []);
     const [activeLayerId, setActiveLayerId] = useState<string>('layer-1');
@@ -63,6 +64,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
     // Magic Edit State
     const [magicPrompt, setMagicPrompt] = useState('');
     const [isMagicEditing, setIsMagicEditing] = useState(false);
+    const [isRemovingBg, setIsRemovingBg] = useState(false);
     const [backgroundImageUrl, setBackgroundImageUrl] = useState(image.originalUrl || image.url); // Local override for background
 
     // Canvas ref for capturing image
@@ -80,15 +82,43 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
         if (!magicPrompt.trim()) return;
         setIsMagicEditing(true);
         try {
-            // Use current background state and passed aspect ratio
-            const newImageBase64 = await editGeneratedImage(backgroundImageUrl, magicPrompt, aspectRatio);
-            setBackgroundImageUrl(newImageBase64);
-            setMagicPrompt('');
+            if (onMagicEdit) {
+                await onMagicEdit(magicPrompt);
+                // The parent component updates the image prop, which triggers the useEffect to update backgroundImageUrl
+                // However, we might want to manually clear prompt here
+                setMagicPrompt('');
+            } else {
+                console.warn("onMagicEdit prop missing, attempting direct call (might fail without API key)");
+                // Fallback (might fail if apiKey is not available in context)
+                const newImageBase64 = await editGeneratedImage(backgroundImageUrl, magicPrompt, aspectRatio);
+                setBackgroundImageUrl(newImageBase64);
+                setMagicPrompt('');
+            }
         } catch (e) {
             console.error(e);
             alert("Erro na edição. Tente novamente.");
         } finally {
             setIsMagicEditing(false);
+        }
+    };
+
+    const handleRemoveBackground = async () => {
+        if (!backgroundImageUrl) return;
+        setIsRemovingBg(true);
+        try {
+            console.log("Starting background removal...");
+            // Using jsdelivr as alternative CDN which might be more reliable
+            const blob = await removeBackground(backgroundImageUrl, {
+                publicPath: "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.0.6/dist/"
+            });
+            console.log("Background removed successfully, blob:", blob);
+            const newUrl = URL.createObjectURL(blob);
+            setBackgroundImageUrl(newUrl);
+        } catch (e: any) {
+            console.error("Background removal failed:", e);
+            alert(`Erro ao remover fundo: ${e.message || JSON.stringify(e)}. Verifique o console.`);
+        } finally {
+            setIsRemovingBg(false);
         }
     };
 
@@ -749,6 +779,18 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                         <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-3 flex items-center gap-2">
                             <Sparkles size={14} /> Edição Mágica (IA)
                         </h4>
+
+                        {/* Remove Background Button */}
+                        <button
+                            onClick={handleRemoveBackground}
+                            disabled={isRemovingBg || isMagicEditing}
+                            className={`w-full py-2 mb-3 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold uppercase tracking-wider border border-white/10 flex items-center justify-center gap-2 transition-all active:scale-95 ${isRemovingBg ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title="Remover o fundo da imagem principal automaticamente"
+                        >
+                            {isRemovingBg ? <Loader2 size={14} className="animate-spin" /> : <Eraser size={14} />}
+                            {isRemovingBg ? 'Removendo...' : 'Remover Fundo'}
+                        </button>
+
                         <p className="text-[10px] text-white/60 mb-3 leading-relaxed">
                             Descreva o que você quer mudar na imagem. Ex: "Mude o fundo para azul", "Adicione óculos no modelo".
                         </p>
@@ -757,11 +799,11 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                             onChange={(e) => setMagicPrompt(e.target.value)}
                             className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-xs text-white placeholder-white/20 outline-none focus:border-indigo-500 transition-all resize-none h-20 mb-3"
                             placeholder="Digite sua alteração..."
-                            disabled={isMagicEditing}
+                            disabled={isMagicEditing || isRemovingBg}
                         />
                         <button
                             onClick={handleMagicEditOptimized}
-                            disabled={isMagicEditing || !magicPrompt.trim()}
+                            disabled={isMagicEditing || !magicPrompt.trim() || isRemovingBg}
                             className={`w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2 transition-all active:scale-95 ${isMagicEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
                         >
                             {isMagicEditing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}

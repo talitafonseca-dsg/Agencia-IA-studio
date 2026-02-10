@@ -1636,17 +1636,21 @@ const App: React.FC = () => {
           onUpdate={handleLayerUpdate}
           onMagicEdit={async (prompt) => {
             if (!editingImage) return;
+            if (!apiKey) {
+              setShowApiKeyModal(true);
+              return;
+            }
             try {
               // Mock loading / toast here if needed, but TextEditor handles its own loading state
-              const newImageUrl = await editGeneratedImage(editingImage.url, prompt, config.aspectRatio, apiKey || undefined);
+              const newImageUrl = await editGeneratedImage(editingImage.url, prompt, config.aspectRatio, apiKey);
               if (newImageUrl) {
                 const updatedImage = { ...editingImage, url: newImageUrl };
                 setResults(prev => prev.map(img => img.id === editingImage.id ? updatedImage : img));
                 setEditingImage(updatedImage);
               }
-            } catch (e) {
+            } catch (e: any) {
               console.error("Magic Edit Error", e);
-              alert("Erro ao editar imagem. Tente novamente.");
+              alert(`Erro na edição: ${e.message || "Erro desconhecido"}`);
             }
           }}
         />

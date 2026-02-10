@@ -1733,11 +1733,13 @@ CONTEXT & COLOR PALETTE:
       const typographyRules = hasReference ? "FONT STYLE: CLONE the font from Image 2 (Reference)." : getTypographyRules(style);
 
       prompt += `
-       CONTENT TO WRITE(VERBATIM):
+       CONTENT TO WRITE (VERBATIM - STRICT):
 - HEADLINE: "${config.copyText}"
        ${typographyRules}
+- SPELLING RULE: WRITE EXACTLY AS PROVIDED. DO NOT CORRECT. DO NOT CHANGE "MEDIDA" TO "MEDIRA".
+- CRITICAL: DISABLE AUTO-CORRECTION. The input text is final.
 - POSITIONING: ${hasReference ? 'MATCH REFERENCE IMAGE LAYOUT EXACTLY' : (variationIndex === 2 ? 'Asymmetrical (Left/Right)' : 'Integrated Center/Top')}.
-- SPELLING CHECK: Portuguese.Accents(á, é, ã, ç) are MANDATORY.
+- SPELLING CHECK: Portuguese. Accents (á, é, ã, ç) are MANDATORY.
        `;
     } else {
       prompt += `
