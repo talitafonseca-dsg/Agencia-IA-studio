@@ -2682,13 +2682,16 @@ export const editGeneratedImage = async (
     const lowerPrompt = prompt.toLowerCase();
     const isTextEdit = textKeywords.some(keyword => lowerPrompt.includes(keyword));
 
+    // AUTO-CORRECT SPELLING IN PROMPT
+    const correctedPrompt = enforceCorrectSpelling(prompt);
+
     let editingPrompt = "";
 
     if (isTextEdit) {
       // PROMPT OTIMIZADO PARA EDIÇÃO DE TEXTO (PRESERVAÇÃO MAXIMA V3)
       editingPrompt = `
       TASK: OPTICAL CHARACTER RECOGNITION (OCR) + TEXT INPAINTING.
-      USER INSTRUCTION: "${prompt}"
+      USER INSTRUCTION: "${correctedPrompt}"
 
       >>> EXECUTION RULES (STRICT):
       1. STRATEGY: Treat this as a TEXT REPLACEMENT task.
@@ -2700,13 +2703,14 @@ export const editGeneratedImage = async (
          - DO NOT REMOVE THE OBJECT HOLDING THE TEXT (Phone, Paper, Sign).
          - Keep the BACKGROUND, LIGHTING, and HANDS 100% UNCHANGED.
       
-      3. STYLE MATCHING:
-         - Detect the font, color, and perspective of the original text.
-         - Apply the NEW text using the SAME style.
-         - If deleting: Fill the space with the underlying texture (paper grain, screen pixels).
+      3. STYLE & CASING MATCHING (ABSOLUTE PRIORITY):
+         - DETECT ORIGINAL CASING: If the original text is UPPERCASE, the new text MUST BE UPPERCASE.
+         - DETECT ORIGINAL FONT: Match the font weight, style, and color exactly.
+         - IF USER TYPED LOWERCASE: You must CONVERT it to UPPERCASE if the design requires it.
+         - SPELLING: The user instruction has been auto-corrected. Use the spelling exactly as provided in "USER INSTRUCTION".
 
       NEGATIVE PROMPT:
-      - removing objects, changing background, re-generating scene, new image, distortion, deleting phone, deleting paper.
+      - removing objects, changing background, re-generating scene, new image, distortion, deleting phone, deleting paper, mixing casing, lowercase when original is uppercase.
       `;
     } else {
       // PROMPT GERAL (MANTIDO)
