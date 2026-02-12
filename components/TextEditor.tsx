@@ -113,6 +113,25 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
         }
     };
 
+    const handleAutoCorrect = async () => {
+        const autoCorrectPrompt = "CORRIGIR ORTOGRAFIA: Identifique todo o texto da imagem e corrija erros de português/digitação. MANTENHA O MESMO ESTILO, FONTE E CORES. APENAS CONSERTE ERROS DE PORTUGUÊS.";
+
+        setIsMagicEditing(true);
+        try {
+            if (onMagicEdit) {
+                await onMagicEdit(autoCorrectPrompt);
+            } else {
+                const newImageBase64 = await editGeneratedImage(backgroundImageUrl, autoCorrectPrompt, aspectRatio);
+                setBackgroundImageUrl(newImageBase64);
+            }
+        } catch (e: any) {
+            console.error(e);
+            alert("Erro ao corrigir texto: " + (e?.message || "Erro desconhecido"));
+        } finally {
+            setIsMagicEditing(false);
+        }
+    };
+
     const handleRemoveBackground = async () => {
         if (!backgroundImageUrl) return;
         setIsRemovingBg(true);
@@ -816,6 +835,16 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                         >
                             {isRemovingBg ? <Loader2 size={14} className="animate-spin" /> : <Eraser size={14} />}
                             {isRemovingBg ? 'Removendo...' : (activeLayer?.type === 'image' ? 'Remover Fundo (Camada)' : 'Remover Fundo')}
+                        </button>
+
+                        <button
+                            onClick={handleAutoCorrect}
+                            disabled={isRemovingBg || isMagicEditing}
+                            className={`w-full py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 mt-2 rounded-lg text-xs font-bold uppercase tracking-wider border border-emerald-500/20 flex items-center justify-center gap-2 transition-all active:scale-95 ${isMagicEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title="Corrigir erros de ortografia automaticamente mantendo o estilo visual"
+                        >
+                            {isMagicEditing ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                            {isMagicEditing ? 'Corrigindo...' : 'Corrigir Textos (IA)'}
                         </button>
                     </div>
 

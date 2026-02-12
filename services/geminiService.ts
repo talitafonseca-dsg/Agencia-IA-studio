@@ -2703,14 +2703,21 @@ export const editGeneratedImage = async (
          - DO NOT REMOVE THE OBJECT HOLDING THE TEXT (Phone, Paper, Sign).
          - Keep the BACKGROUND, LIGHTING, and HANDS 100% UNCHANGED.
       
-      3. STYLE & CASING MATCHING (ABSOLUTE PRIORITY):
-         - DETECT ORIGINAL CASING: If the original text is UPPERCASE, the new text MUST BE UPPERCASE.
-         - DETECT ORIGINAL FONT: Match the font weight, style, and color exactly.
-         - IF USER TYPED LOWERCASE: You must CONVERT it to UPPERCASE if the design requires it.
-         - SPELLING: The user instruction has been auto-corrected. Use the spelling exactly as provided in "USER INSTRUCTION".
+      3. INTELLIGENCE & ADAPTATION (THE "MAGIC" PART):
+         - You are an INTELLIGENT EDITOR. Do not just copy-paste.
+         - LOOK AT THE IMAGE TEXT. Is it UPPERCASE? Title Case? lowercase?
+         - ADAPT THE USER INPUT to match that style EXACTLY.
+         
+         >>> EXAMPLES OF EXPECTED BEHAVIOR:
+         - Image has "OFERTA" (Upper) | User types "promoção" (Lower) -> YOU WRITE: "PROMOÇÃO" (Upper).
+         - Image has "Coffee" (Title) | User types "chá" (Lower) -> YOU WRITE: "Chá" (Title).
+         - Image has "text" (Lower) | User types "TEXTO" (Upper) -> YOU WRITE: "texto" (Lower).
+
+         - SPELLING: The user instruction has been auto-corrected to: "${correctedPrompt}". USE THIS SPELLING.
+         - IF THE USER TYPED "divvetida", YOU MUST WRITE "DIVERTIDA" (Corrected + Upper).
 
       NEGATIVE PROMPT:
-      - removing objects, changing background, re-generating scene, new image, distortion, deleting phone, deleting paper, mixing casing, lowercase when original is uppercase.
+      - mixed casing, lowercase when original is uppercase, typos, misspelled words, blurry text, new background.
       `;
     } else {
       // PROMPT GERAL (MANTIDO)
@@ -2738,6 +2745,22 @@ export const editGeneratedImage = async (
   }
 };
 
+// SHARED TEXT ACCURACY RULES (DERIVED FROM DARK MODE SUCCESS)
+const STANDARD_TEXT_ACCURACY = `
+      - SPELLING CHECK (CRITICAL - APPLIES TO ALL STYLES):
+        1. PORTUGUESE MUST BE PERFECT. NO "LOREM IPSUM".
+        2. USE ACCENTS CORRECTLY: "É", "NÃO", "VOCÊ", "COMÉRCIO".
+        3. NO FAKE WORDS or misspelling.
+        4. RESPECT THE "TARGET SENTENCE" EXACTLY.
+      
+      - LEGIBILITY & CONTRAST (UNIVERSAL RULE):
+        1. TEXT MUST BE READABLE.
+        2. IF BACKGROUND IS COMPLEX -> USE A SUBTLE SHADOW OR GLOW BEHIND TEXT.
+        3. IF BACKGROUND IS LIGHT -> USE DARK TEXT.
+        4. IF BACKGROUND IS DARK -> USE LIGHT TEXT.
+        5. DO NOT PLACE TEXT OVER BUSY DETAILS (Faces, complex patterns).
+`;
+
 const getTypographyRules = (style: VisualStyle): string => {
   switch (style) {
     case VisualStyle.MODERN:
@@ -2746,12 +2769,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Geometric Sans-Serif (e.g., Futura, Montserrat, Avant Garde).
       - CASING: UPPERCASE HEADLINES.
       - DECORATION: Clean text, floating on negative space. NO BOXES.
-      - SPELLING CHECK (CRITICAL): 
-        - PORTUGUESE MUST BE PERFECT. 
-        - USE ACCENTS CORRECTLY: "É", "NÃO", "COMÉRCIO".
-        - NO FAKE WORDS. NO "LOREM IPSUM".
       - COLOR: High Contrast (White on Dark, Black on Light).
       - VIBE: Tech-focused, Clean, Minimal data-driven.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.PROFESSIONAL:
       return `
@@ -2761,6 +2781,7 @@ const getTypographyRules = (style: VisualStyle): string => {
       - DECORATION: Professional, slight drop shadow for readability.
       - COLOR: Navy Blue, Dark Grey, or Pure White.
       - VIBE: Trustworthy, Corporate, Premium.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.DESIGNI_PD_PRO:
       return `
@@ -2770,6 +2791,7 @@ const getTypographyRules = (style: VisualStyle): string => {
       - ALIGNMENT: Align text to the "Text Zone" defined in the background rule.
       - DECORATION: If background is complex, use a subtle backing shape.
       - COLOR: Brand contrast.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.COMMERCIAL_PREMIUM:
     case VisualStyle.UGC_INSTAGRAM:
@@ -2778,12 +2800,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: HEAVY IMPACT FONT (Bold Sans-Serif, Condensed).
       - CASING: UPPERCASE ONLY. HUGE SIZE.
       - DECORATION: MANDATORY "SALE TAGS" or "STRIPS" (Tarjas) behind main keywords (Yellow/Red backgrounds).
-      - SPELLING CHECK (CRITICAL): 
-        - PORTUGUESE MUST BE PERFECT. 
-        - USE ACCENTS CORRECTLY: "É", "NÃO", "PROMOÇÃO".
-        - NO FAKE WORDS. NO "LOREM IPSUM".
       - COLOR: White Text on Red/Yellow/Blue Strips.
       - VIBE: Urgent, Promotional, High Energy.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.DELIVERY:
       return `
@@ -2791,13 +2810,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Friendly Rounded Sans (Fredoka, Varela) OR Modern Script (Pacifico).
       - CASING: Mixed Case allowed for Script, UPPERCASE for Headlines.
       - DECORATION: Clean integration, floating text, or subtle dark gradients. NO AGGRESSIVE SALE STRIPS.
-      - SPELLING CHECK (CRITICAL):
-        - PORTUGUESE MUST BE PERFECT. 
-        - DO NOT WRITE "CORAÇIÕES" -> WRITE "CORAÇÕES".
-        - DO NOT WRITE "ESSÉ" -> WRITE "ESSE".
-        - USE ACCENTS CORRECTLY: "CAFÉ", "NÃO", "É".
       - COLOR: Cream, White, or Gold/Orange.
       - VIBE: Appetizing, Warm, Inviting.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.LUXURY:
       return `
@@ -2805,9 +2820,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Elegant Serif (Bodoni, Didot, Playfair Display) or Ultra-Thin Sans.
       - CASING: WIDE LETTER SPACING (Kerning), UPPERCASE.
       - DECORATION: Gold/Silver Foil effect, Minimalist. NO background boxes.
-      - SPELLING CHECK (CRITICAL): PORTUGUESE MUST BE PERFECT. USE ACCENTS.
       - COLOR: Gold, Silver, White, Black.
       - VIBE: Expensive, Exclusive, High-End fashion.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.TECH:
       return `
@@ -2815,9 +2830,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Monospace (Courier New) or futuristic Sans.
       - CASING: lowercase or UPPERCASE mixed.
       - DECORATION: Glitch effect, Neon Glow, or Digital "Terminal" look.
-      - SPELLING CHECK (CRITICAL): NO FAKE WORDS. PERFECT PORTUGUESE.
       - COLOR: Cyan, Neon Green, White.
       - VIBE: Cyberpunk, Digital, Code.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.DARK:
       return `
@@ -2825,12 +2840,9 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Bold Sans-Serif (Inter, Roboto) or Cyberpunk.
       - CASING: UPPERCASE.
       - DECORATION: Neon Glow perimeters, Dark Cards.
-      - SPELLING CHECK (CRITICAL): 
-        - PORTUGUESE MUST BE PERFECT. 
-        - USE ACCENTS CORRECTLY: "É", "NÃO".
-        - NO FAKE WORDS.
       - COLOR: White, Neon Cyan, Neon Purple.
       - VIBE: Night mode, Gaming, Premium Tech.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.INFANTIL:
       return `
@@ -2840,6 +2852,7 @@ const getTypographyRules = (style: VisualStyle): string => {
       - DECORATION: Inside colorful Clouds or Speech Bubbles.
       - COLOR: Primary Colors (Red, Blue, Yellow).
       - VIBE: Friendly, Playful, Soft.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     case VisualStyle.CREATIVE:
       return `
@@ -2848,15 +2861,16 @@ const getTypographyRules = (style: VisualStyle): string => {
       - CASING: Mixed.
       - DECORATION: Paint strokes or paper torn edges as background for text.
       - COLOR: Vibrante.
-      - VIBE: Artistic, Expressive.
+      ${STANDARD_TEXT_ACCURACY}
       `;
     default:
       return `
-      - TYPOGRAPHY RULES (STANDARD):
-      - FONT: BOLD READABLE SANS-SERIF (Inter/Roboto).
-      - CASING: UPPERCASE for Headings.
-      - DECORATION: High contrast against background. Drop shadow if needed.
+      - TYPOGRAPHY RULES (DEFAULT):
+      - FONT: Modern Sans-Serif.
+      - CASING: Mixed.
+      ${STANDARD_TEXT_ACCURACY}
       `;
   }
 };
+
 
