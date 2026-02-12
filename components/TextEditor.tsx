@@ -113,26 +113,35 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
         }
     };
 
-    const handleAutoCorrect = async () => {
-        console.log("[AutoCorrect] Button clicked");
-        alert("Corrigindo textos... aguarde!");
-        const autoCorrectPrompt = "Leia todo o texto que aparece na imagem. Identifique palavras com erros de ortografia em português. Corrija os erros reescrevendo o texto corretamente NA MESMA POSIÇÃO, COM A MESMA FONTE, COR E TAMANHO. Não mude mais nada na imagem além do texto corrigido.";
-
-        setIsMagicEditing(true);
-        try {
-            if (onMagicEdit) {
-                await onMagicEdit(autoCorrectPrompt);
-            } else {
-                const newImageBase64 = await editGeneratedImage(backgroundImageUrl, autoCorrectPrompt, aspectRatio);
-                setBackgroundImageUrl(newImageBase64);
+    const handleAutoCorrect = () => {
+        const autoPrompt = "Leia todo o texto na imagem, corrija erros de ortografia em português, reescreva o texto corrigido na mesma posição, mesma fonte, cor e tamanho. Não mude nada além do texto.";
+        setMagicPrompt(autoPrompt);
+        // Trigger the same flow as "Gerar Alteração" button
+        setTimeout(async () => {
+            setIsMagicEditing(true);
+            try {
+                if (onMagicEdit) {
+                    await onMagicEdit(autoPrompt);
+                    setMagicPrompt('');
+                } else {
+                    const newImageBase64 = await editGeneratedImage(backgroundImageUrl, autoPrompt, aspectRatio);
+                    setBackgroundImageUrl(newImageBase64);
+                    setMagicPrompt('');
+                }
+            } catch (e: any) {
+                console.error("[AutoCorrect] Error:", e);
+                const msg = e?.message || '';
+                if (msg.includes('429') || msg.toLowerCase().includes('cota') || msg.toLowerCase().includes('quota')) {
+                    alert("Limite da conta compartilhada atingido. Por favor, adicione sua própria Chave API para continuar.");
+                } else {
+                    alert("Erro ao corrigir texto: " + msg);
+                }
+            } finally {
+                setIsMagicEditing(false);
             }
-        } catch (e: any) {
-            console.error(e);
-            alert("Erro ao corrigir texto: " + (e?.message || "Erro desconhecido"));
-        } finally {
-            setIsMagicEditing(false);
-        }
+        }, 100);
     };
+
 
     const handleRemoveBackground = async () => {
         if (!backgroundImageUrl) return;
