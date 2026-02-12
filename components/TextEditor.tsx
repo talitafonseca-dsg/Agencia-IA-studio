@@ -115,6 +115,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
 
     const handleAutoCorrect = async () => {
         console.log("[AutoCorrect] Button clicked");
+        alert("Corrigindo textos... aguarde!");
         const autoCorrectPrompt = "Leia todo o texto que aparece na imagem. Identifique palavras com erros de ortografia em português. Corrija os erros reescrevendo o texto corretamente NA MESMA POSIÇÃO, COM A MESMA FONTE, COR E TAMANHO. Não mude mais nada na imagem além do texto corrigido.";
 
         setIsMagicEditing(true);
