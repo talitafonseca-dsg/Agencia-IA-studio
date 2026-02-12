@@ -94,6 +94,7 @@ const App: React.FC = () => {
   const [customModelImage, setCustomModelImage] = useState<string | null>(null);
   const [stickerImage, setStickerImage] = useState<string | null>(null);
   const [mockupReferenceImage, setMockupReferenceImage] = useState<string | null>(null);
+  const [additionalProducts, setAdditionalProducts] = useState<(string | null)[]>([null, null, null]);
   const [isEditableMode, setIsEditableMode] = useState<boolean>(false);
 
   // Text Editor State
@@ -127,8 +128,12 @@ const App: React.FC = () => {
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   useEffect(() => {
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY;
     const storedKey = localStorage.getItem('gemini_api_key');
-    if (storedKey) {
+
+    if (envKey) {
+      setApiKey(envKey);
+    } else if (storedKey) {
       setApiKey(storedKey);
     } else {
       setShowApiKeyModal(true);
@@ -170,6 +175,7 @@ const App: React.FC = () => {
     setCustomModelImage(null);
     setStickerImage(null);
     setMockupReferenceImage(null);
+    setAdditionalProducts([null, null, null]);
     setResults([]);
     setError(null);
     setIsQuotaError(false);
@@ -275,6 +281,25 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAdditionalProductUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const pngDataUrl = await processFileToPNG(file);
+        setAdditionalProducts(prev => {
+          const newProducts = [...prev];
+          newProducts[index] = pngDataUrl;
+          return newProducts;
+        });
+        setError(null);
+        setIsQuotaError(false);
+      } catch (err) {
+        console.error("Error processing additional product image:", err);
+        setError("Erro ao processar imagem adicional. Tente outro arquivo.");
+      }
+    }
+  };
+
   const handleLayerUpdate = useCallback((layers: any[]) => {
     setPersistentLayers(prev => {
       if (!editingImage) return prev;
@@ -306,7 +331,7 @@ const App: React.FC = () => {
         ...config,
         designCount: config.designCount,
         isEditableMode
-      }, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined, mockupReferenceImage);
+      }, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined, mockupReferenceImage, additionalProducts);
 
       // Inject Layout Mode Metadata
       const resultsWithMeta = generated.map(img => ({
@@ -344,7 +369,7 @@ const App: React.FC = () => {
     setIsQuotaError(false);
 
     try {
-      const singleVariation = await generateStudioCreative(config, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined);
+      const singleVariation = await generateStudioCreative(config, uploadedImage, studioRefImage, productImage, stickerImage, customModelImage, apiKey || undefined, mockupReferenceImage, additionalProducts);
       const newImage = singleVariation[0];
       setResults(prev => prev.map(res =>
         res.id === variationId ? { ...res, url: newImage.url } : res
@@ -794,7 +819,7 @@ const App: React.FC = () => {
 
                   {/* UPLOAD HUB EMBAIXO DA CURADORIA PARA STUDIO */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-12">
-                    <div className="relative group">
+                    <div className="relative group flex flex-col gap-4">
                       <input type="file" id="studio-main-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'subject')} />
                       <label htmlFor="studio-main-upload" className={`flex flex-col items-center justify-center p-8 rounded-[3rem] border-2 border-dashed transition-all cursor-pointer h-[240px] ${uploadedImage ? 'bg-indigo-600/5 border-indigo-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20'}`}>
                         {uploadedImage ? (
@@ -807,6 +832,46 @@ const App: React.FC = () => {
                           </>
                         )}
                       </label>
+
+                      {/* ADDITIONAL PRODUCTS GRID */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[0, 1, 2].map((index) => (
+                          <div key={index} className="relative group/mini">
+                            <input
+                              type="file"
+                              id={`additional-product-${index}`}
+                              className="hidden"
+                              accept="image/*"
+                              onChange={(e) => handleAdditionalProductUpload(e, index)}
+                            />
+                            <label
+                              htmlFor={`additional-product-${index}`}
+                              className={`flex flex-col items-center justify-center aspect-square rounded-2xl border border-dashed transition-all cursor-pointer ${additionalProducts[index] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'}`}
+                            >
+                              {additionalProducts[index] ? (
+                                <div className="relative w-full h-full p-2">
+                                  <img src={additionalProducts[index]!} className="w-full h-full object-contain rounded-lg" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setAdditionalProducts(prev => {
+                                        const newP = [...prev];
+                                        newP[index] = null;
+                                        return newP;
+                                      });
+                                    }}
+                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-sm hover:scale-110 transition-transform"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <Plus size={16} className="text-white/20 group-hover/mini:text-white transition-colors" />
+                              )}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <div className="relative group">
                       <input type="file" id="studio-ref-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'reference')} />
@@ -1072,7 +1137,7 @@ const App: React.FC = () => {
                     <p className="text-white/30 text-lg font-medium tracking-wide">{t.main.welcome_subtitle}</p>
                   </div>
                   <div className={`grid grid-cols-1 md:grid-cols-3 gap-8`}>
-                    <div className="relative group">
+                    <div className="relative group flex flex-col gap-4">
                       <input type="file" id="center-main-upload" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, 'product')} />
                       <label htmlFor="center-main-upload" className={`flex flex-col items-center justify-center p-10 rounded-[3.5rem] border-2 border-dashed transition-all cursor-pointer h-[320px] ${productImage ? 'bg-indigo-600/5 border-indigo-500/30' : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20'}`}>
                         {productImage ? (
@@ -1089,6 +1154,46 @@ const App: React.FC = () => {
                           </>
                         )}
                       </label>
+
+                      {/* ADDITIONAL PRODUCTS GRID (OPTIONAL) */}
+                      <div className="grid grid-cols-3 gap-3">
+                        {[0, 1, 2].map((index) => (
+                          <div key={index} className="relative group/mini">
+                            <input
+                              type="file"
+                              id={`center-additional-product-${index}`}
+                              className="hidden"
+                              accept="image/*"
+                              onChange={(e) => handleAdditionalProductUpload(e, index)}
+                            />
+                            <label
+                              htmlFor={`center-additional-product-${index}`}
+                              className={`flex flex-col items-center justify-center aspect-square rounded-2xl border border-dashed transition-all cursor-pointer ${additionalProducts[index] ? 'bg-indigo-600/10 border-indigo-500/50' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'}`}
+                            >
+                              {additionalProducts[index] ? (
+                                <div className="relative w-full h-full p-2">
+                                  <img src={additionalProducts[index]!} className="w-full h-full object-contain rounded-lg" />
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setAdditionalProducts(prev => {
+                                        const newP = [...prev];
+                                        newP[index] = null;
+                                        return newP;
+                                      });
+                                    }}
+                                    className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-sm hover:scale-110 transition-transform"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <Plus size={16} className="text-white/20 group-hover/mini:text-white transition-colors" />
+                              )}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
                     {/* CUSTOM MODEL UPLOAD - NO MEIO */}
@@ -1636,21 +1741,25 @@ const App: React.FC = () => {
           onUpdate={handleLayerUpdate}
           onMagicEdit={async (prompt) => {
             if (!editingImage) return;
-            if (!apiKey) {
-              setShowApiKeyModal(true);
-              return;
-            }
+
+            // Allow shared key usage (removed blocking check)
+
             try {
-              // Mock loading / toast here if needed, but TextEditor handles its own loading state
               const newImageUrl = await editGeneratedImage(editingImage.url, prompt, config.aspectRatio, apiKey);
               if (newImageUrl) {
-                const updatedImage = { ...editingImage, url: newImageUrl };
+                const updatedImage = { ...editingImage, url: newImageUrl, originalUrl: newImageUrl };
                 setResults(prev => prev.map(img => img.id === editingImage.id ? updatedImage : img));
                 setEditingImage(updatedImage);
               }
             } catch (e: any) {
               console.error("Magic Edit Error", e);
-              alert(`Erro na edição: ${e.message || "Erro desconhecido"}`);
+              const msg = e.message || "";
+              if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('cota')) {
+                alert("Limite da conta compartilhada atingido. Por favor, adicione sua própria Chave API nas configurações para continuar editando.");
+                setShowApiKeyModal(true);
+              } else {
+                alert(`Erro na edição: ${msg}`);
+              }
             }
           }}
         />

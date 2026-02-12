@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, Type, Move, Palette, ArrowRight, Sun, Layers, Droplet, Plus, Trash2, AlignLeft, AlignCenter, AlignRight, Square, Image as ImageIcon, Upload, Sparkles, Loader2, Copy, Scissors, Eraser } from 'lucide-react';
+import { X, Check, Type, Move, Palette, ArrowRight, Sun, Layers, Droplet, Plus, Trash2, AlignLeft, AlignCenter, AlignRight, Square, Image as ImageIcon, Upload, Sparkles, Loader2, Copy, Scissors, Eraser, FlipHorizontal, FlipVertical } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import { editGeneratedImage } from '../services/geminiService';
 import { removeBackground } from "@imgly/background-removal";
@@ -10,6 +10,8 @@ interface BaseLayer {
     id: string;
     position: { x: number; y: number }; // Percentage 0-100
     rotation: number; // Degrees 0-360
+    flipX?: boolean;
+    flipY?: boolean;
 }
 
 interface TextLayer extends BaseLayer {
@@ -58,6 +60,10 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
     // LAYERS STATE
     const [layers, setLayers] = useState<Layer[]>(initialLayers || []);
     const [activeLayerId, setActiveLayerId] = useState<string>('layer-1');
+
+    useEffect(() => {
+        console.log("TextEditor Mounted. Version: Local Assets + Tools Section");
+    }, []);
     const [isDragging, setIsDragging] = useState(false);
     const [snapGuides, setSnapGuides] = useState({ x: false, y: false });
 
@@ -94,9 +100,14 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                 setBackgroundImageUrl(newImageBase64);
                 setMagicPrompt('');
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert("Erro na edição. Tente novamente.");
+            const msg = e?.message || '';
+            if (msg.includes('429') || msg.toLowerCase().includes('cota') || msg.toLowerCase().includes('quota')) {
+                alert("Limite da conta compartilhada atingido. Por favor, adicione sua própria Chave API para continuar.");
+            } else {
+                alert("Erro na edição: " + msg);
+            }
         } finally {
             setIsMagicEditing(false);
         }
@@ -106,10 +117,12 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
         if (!backgroundImageUrl) return;
         setIsRemovingBg(true);
         try {
-            console.log("Starting background removal...");
-            // Using jsdelivr as alternative CDN which might be more reliable
+            console.log("Starting background removal via CDN...");
             const blob = await removeBackground(backgroundImageUrl, {
-                publicPath: "https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.0.6/dist/"
+                debug: true,
+                progress: (key: string, current: number, total: number) => {
+                    console.log(`BG Removal progress: ${key} ${Math.round((current / total) * 100)}%`);
+                }
             });
             console.log("Background removed successfully, blob:", blob);
             const newUrl = URL.createObjectURL(blob);
@@ -117,6 +130,29 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
         } catch (e: any) {
             console.error("Background removal failed:", e);
             alert(`Erro ao remover fundo: ${e.message || JSON.stringify(e)}. Verifique o console.`);
+        } finally {
+            setIsRemovingBg(false);
+        }
+    };
+
+    const handleRemoveLayerBackground = async () => {
+        if (!activeLayer || activeLayer.type !== 'image') return;
+        const imgLayer = activeLayer as ImageLayer;
+        setIsRemovingBg(true);
+        try {
+            console.log("Starting layer background removal via CDN...");
+            const blob = await removeBackground(imgLayer.url, {
+                debug: true,
+                progress: (key: string, current: number, total: number) => {
+                    console.log(`Layer BG Removal progress: ${key} ${Math.round((current / total) * 100)}%`);
+                }
+            });
+            console.log("Layer background removed successfully");
+            const newUrl = URL.createObjectURL(blob);
+            updateLayer({ url: newUrl });
+        } catch (e: any) {
+            console.error("Layer background removal failed:", e);
+            alert(`Erro ao remover fundo da imagem: ${e.message || JSON.stringify(e)}`);
         } finally {
             setIsRemovingBg(false);
         }
@@ -250,14 +286,14 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                 // Restore persisted layers
                 setLayers(initialLayers);
                 setActiveLayerId(initialLayers[0].id);
-            } else {
-                // Initialize default layers for new image
+            } else if (initialText) {
+                // Initialize default layers for new image ONLY if initialText is provided
                 const defaultId = `text-${Math.random().toString(36).substr(2, 9)}`;
                 setLayers([
                     {
                         id: defaultId,
                         type: 'text',
-                        text: initialText || 'Seu Texto Aqui', // Use passed initialText or fallback
+                        text: initialText,
                         position: { x: 50, y: 20 },
                         rotation: 0,
                         color: '#ffffff',
@@ -279,6 +315,10 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                     }
                 ]);
                 setActiveLayerId(defaultId);
+            } else {
+                // Start with NO layers if no initial text or layers provided
+                setLayers([]);
+                setActiveLayerId('');
             }
         }
     }, [image?.id]); // Depend on image ID (initialLayers should be stable or refs)
@@ -407,41 +447,32 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                 const scale = canvas.width / 800; // Normalization scale
 
                 // RENDER EACH LAYER
+                // RENDER EACH LAYER
                 layers.forEach(layer => {
                     ctx?.save(); // ISOLATE STATE FOR EACH LAYER
 
                     const xPos = (layer.position.x / 100) * canvas.width;
                     const yPos = (layer.position.y / 100) * canvas.height;
 
-                    // APPLY ROTATION
-                    if (layer.rotation) {
-                        ctx.translate(xPos, yPos);
-                        ctx.rotate((layer.rotation * Math.PI) / 180);
-                        ctx.translate(-xPos, -yPos);
-                    }
+                    // APPLY TRANSFORMS (Translate -> Rotate -> Scale)
+                    // We move context to the center of the object, then apply rotation and flip.
+                    // Subsequent drawing must be relative to (0, 0).
+                    ctx.translate(xPos, yPos);
+                    ctx.rotate((layer.rotation * Math.PI) / 180);
+                    ctx.scale(layer.flipX ? -1 : 1, layer.flipY ? -1 : 1);
 
                     if (layer.type === 'image') {
                         // IMAGE RENDERING
                         const imgLayer = layer as ImageLayer;
                         const layerImg = new Image();
                         layerImg.src = imgLayer.url;
-                        // Synchronous drawing for DataURLs usually works if already loaded, 
-                        // but for safety in valid React apps we might need to preload. 
-                        // However, since it's a local DataURL from FileReader, it should be fast.
-                        // Ideally we pre-load, but here we'll assume it draws if ready.
-                        // Actually, 'new Image' isn't instant. 
-                        // For a robust implementation, we should load all images before drawing.
-                        // But for this single-file refactor, we will try standard draw.
-                        // Fix: We can't wait for onload inside a valid synchronous loop easily.
-                        // We will rely on it being a data URL which is fast, or we accept a potential race condition for now.
-                        // BETTER: Just draw it if we can. 
 
-                        // For width:
                         const finalWidth = (imgLayer.width / 100) * canvas.width;
                         const finalHeight = finalWidth * (layerImg.height / layerImg.width) || finalWidth; // Maintain aspect ratio
 
                         ctx.globalAlpha = imgLayer.opacity;
-                        ctx.drawImage(layerImg, xPos - finalWidth / 2, yPos - finalHeight / 2, finalWidth, finalHeight);
+                        // Draw centered at (0,0)
+                        ctx.drawImage(layerImg, -finalWidth / 2, -finalHeight / 2, finalWidth, finalHeight);
                         ctx.globalAlpha = 1.0;
                     }
 
@@ -455,16 +486,15 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
 
                         const maxPxWidth = (textLayer.maxWidth / 100) * canvas.width;
 
-                        // ALIGNMENT FIX: 
-                        // The CSS preview uses translate(-50%, -50%) which CENTERS the text box at xPos/yPos.
-                        // But ctx.fillText draws from the anchor point.
-                        // If textAlign is 'left', we must start drawing at the LEFT EDGE of the centered box.
-                        // If textAlign is 'right', we must start drawing at the RIGHT EDGE of the centered box.
-                        let drawX = xPos;
+                        // ALIGNMENT FIX (Relative to 0,0)
+                        // If center, drawX is 0.
+                        // If left, start at left edge of the box (-width/2).
+                        // If right, start at right edge of the box (+width/2).
+                        let drawX = 0;
                         if (textLayer.textAlign === 'left') {
-                            drawX = xPos - (maxPxWidth / 2);
+                            drawX = -(maxPxWidth / 2);
                         } else if (textLayer.textAlign === 'right') {
-                            drawX = xPos + (maxPxWidth / 2);
+                            drawX = (maxPxWidth / 2);
                         }
 
                         const lines = wrapText(ctx, textLayer.text, maxPxWidth);
@@ -472,7 +502,8 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                         // DRAW TEXT & BACKGROUNDS STRIPS (Canvas)
                         const lineHeightVal = finalFontSize * (textLayer.lineHeight || 1.2);
                         const totalHeight = lines.length * lineHeightVal;
-                        const startY = yPos - (totalHeight / 2) + (lineHeightVal / 2);
+                        // Start Y relative to 0
+                        const startY = -(totalHeight / 2) + (lineHeightVal / 2);
 
                         lines.forEach((line, i) => {
                             const lineY = startY + (i * lineHeightVal);
@@ -491,8 +522,6 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                 } else if (textLayer.textAlign === 'center') {
                                     boxX = drawX - (boxWidth / 2);
                                 } else if (textLayer.textAlign === 'right') {
-                                    // Text ends at drawX. Box Right Edge is drawX + padding.
-                                    // Box Left = (drawX + padding) - boxWidth.
                                     boxX = drawX + padding - boxWidth;
                                 }
 
@@ -520,6 +549,9 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                 ctx.shadowColor = textLayer.shadow.color;
                                 ctx.shadowBlur = textLayer.shadow.blur * scale;
                                 const clampedOffset = Math.min(4 * scale, 15);
+                                // Shadows must respect flip direction? 
+                                // Actually ctx.shadow follows the transform! So if flipped, shadow flips. 
+                                // This is usually desired for "physical" flip.
                                 ctx.shadowOffsetX = clampedOffset;
                                 ctx.shadowOffsetY = clampedOffset;
                             } else if (!textLayer.glow.enabled) {
@@ -547,7 +579,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                         });
                     }
 
-                    ctx?.restore(); // RESTORE STATE
+                    ctx?.restore(); // RESTORE STATE (Pops the matrix, returning to global coords)
                 });
 
                 try {
@@ -685,7 +717,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                     style={{
                                         left: `${layer.position.x}%`,
                                         top: `${layer.position.y}%`,
-                                        transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`,
+                                        transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg) scaleX(${layer.flipX ? -1 : 1}) scaleY(${layer.flipY ? -1 : 1})`,
                                         width: `${layer.width}%`,
                                     }}
                                     onMouseDown={(e) => handleMouseDown(e, layer.id)}
@@ -731,7 +763,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                 style={{
                                     left: `${layer.position.x}%`,
                                     top: `${layer.position.y}%`,
-                                    transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg)`,
+                                    transform: `translate(-50%, -50%) rotate(${layer.rotation || 0}deg) scaleX(${layer.flipX ? -1 : 1}) scaleY(${layer.flipY ? -1 : 1})`,
                                     width: `${textLayer.maxWidth}%`,
                                     textAlign: textLayer.textAlign,
                                 }}
@@ -771,6 +803,22 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                 </header>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8">
+                    {/* TOOLS SECTION */}
+                    <div className="bg-white/5 border border-indigo-500/30 rounded-xl p-4 mb-4">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-indigo-300 mb-3 flex items-center gap-2">
+                            Ferramentas (IA)
+                        </h4>
+                        <button
+                            onClick={activeLayer?.type === 'image' ? handleRemoveLayerBackground : handleRemoveBackground}
+                            disabled={isRemovingBg || isMagicEditing}
+                            className={`w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-bold uppercase tracking-wider border border-white/10 flex items-center justify-center gap-2 transition-all active:scale-95 ${isRemovingBg ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            title={activeLayer?.type === 'image' ? 'Remover o fundo da imagem selecionada' : 'Remover o fundo da imagem principal'}
+                        >
+                            {isRemovingBg ? <Loader2 size={14} className="animate-spin" /> : <Eraser size={14} />}
+                            {isRemovingBg ? 'Removendo...' : (activeLayer?.type === 'image' ? 'Remover Fundo (Camada)' : 'Remover Fundo')}
+                        </button>
+                    </div>
+
                     {/* MAGIC EDIT SECTION */}
                     <div className="bg-gradient-to-br from-indigo-900/40 to-purple-900/40 border border-indigo-500/30 rounded-xl p-4 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-30 transition-opacity">
@@ -780,16 +828,7 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                             <Sparkles size={14} /> Edição Mágica (IA)
                         </h4>
 
-                        {/* Remove Background Button */}
-                        <button
-                            onClick={handleRemoveBackground}
-                            disabled={isRemovingBg || isMagicEditing}
-                            className={`w-full py-2 mb-3 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold uppercase tracking-wider border border-white/10 flex items-center justify-center gap-2 transition-all active:scale-95 ${isRemovingBg ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            title="Remover o fundo da imagem principal automaticamente"
-                        >
-                            {isRemovingBg ? <Loader2 size={14} className="animate-spin" /> : <Eraser size={14} />}
-                            {isRemovingBg ? 'Removendo...' : 'Remover Fundo'}
-                        </button>
+
 
                         <p className="text-[10px] text-white/60 mb-3 leading-relaxed">
                             Descreva o que você quer mudar na imagem. Ex: "Mude o fundo para azul", "Adicione óculos no modelo".
@@ -900,6 +939,28 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                                 className="w-full h-3 bg-gray-600 rounded-lg appearance-none accent-indigo-500 hover:bg-gray-500 transition-colors"
                                             />
                                         </div>
+                                        <div className="col-span-2 space-y-1">
+                                            <div className="flex justify-between">
+                                                <span className="text-[10px] text-white/50 uppercase font-semibold">Rotação</span>
+                                                <span className="text-[10px] text-white/50">{Math.round((activeLayer as TextLayer).rotation || 0)}°</span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="360"
+                                                value={(activeLayer as TextLayer).rotation || 0}
+                                                onChange={e => updateLayer({ rotation: Number(e.target.value) })}
+                                                className="w-full h-3 bg-gray-600 rounded-lg appearance-none accent-indigo-500 hover:bg-gray-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div className="col-span-2 flex gap-2">
+                                            <button onClick={() => updateLayer({ flipX: !(activeLayer as TextLayer).flipX })} className={`flex-1 p-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${activeLayer.flipX ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-white/50 hover:bg-gray-700'}`} title="Inverter Horizontal">
+                                                <FlipHorizontal size={14} /> <span className="text-[10px] uppercase font-bold">Inverter H.</span>
+                                            </button>
+                                            <button onClick={() => updateLayer({ flipY: !(activeLayer as TextLayer).flipY })} className={`flex-1 p-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${activeLayer.flipY ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-white/50 hover:bg-gray-700'}`} title="Inverter Vertical">
+                                                <FlipVertical size={14} /> <span className="text-[10px] uppercase font-bold">Inverter V.</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -991,6 +1052,18 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                         ) : (
                             <div className="bg-white/5 p-4 rounded-xl border border-white/10 space-y-4">
                                 <h4 className="text-[10px] font-bold uppercase text-white/50">Propriedades da Imagem</h4>
+
+                                {/* REMOVE BACKGROUND FROM THIS LAYER */}
+                                <button
+                                    onClick={handleRemoveLayerBackground}
+                                    disabled={isRemovingBg || isMagicEditing}
+                                    className={`w-full py-2 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 rounded-lg text-xs font-bold uppercase tracking-wider border border-indigo-500/30 flex items-center justify-center gap-2 transition-all active:scale-95 ${isRemovingBg ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    title="Remover o fundo desta imagem"
+                                >
+                                    {isRemovingBg ? <Loader2 size={14} className="animate-spin" /> : <Eraser size={14} />}
+                                    {isRemovingBg ? 'Removendo Fundo...' : 'Remover Fundo da Imagem'}
+                                </button>
+
                                 <div className="space-y-4">
                                     <div className="space-y-1">
                                         <div className="flex justify-between"><span className="text-[10px] text-white/50 uppercase font-semibold">Largura</span> <span className="text-[10px] text-white/50">{(activeLayer as ImageLayer).width}%</span></div>
@@ -999,6 +1072,18 @@ export const TextEditor: React.FC<TextEditorProps> = ({ image, initialLayers, in
                                     <div className="space-y-1">
                                         <div className="flex justify-between"><span className="text-[10px] text-white/50 uppercase font-semibold">Opacidade</span> <span className="text-[10px] text-white/50">{Math.round((activeLayer as ImageLayer).opacity * 100)}%</span></div>
                                         <input type="range" min="0" max="1" step="0.1" value={(activeLayer as ImageLayer).opacity} onChange={e => updateLayer({ opacity: Number(e.target.value) })} className="w-full h-3 bg-gray-600 rounded-lg appearance-none accent-indigo-500 hover:bg-gray-500 transition-colors" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between"><span className="text-[10px] text-white/50 uppercase font-semibold">Rotação</span> <span className="text-[10px] text-white/50">{Math.round((activeLayer as ImageLayer).rotation || 0)}°</span></div>
+                                        <input type="range" min="0" max="360" value={(activeLayer as ImageLayer).rotation || 0} onChange={e => updateLayer({ rotation: Number(e.target.value) })} className="w-full h-3 bg-gray-600 rounded-lg appearance-none accent-indigo-500 hover:bg-gray-500 transition-colors" />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => updateLayer({ flipX: !(activeLayer as ImageLayer).flipX })} className={`flex-1 p-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${activeLayer.flipX ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-white/50 hover:bg-gray-700'}`} title="Inverter Horizontal">
+                                            <FlipHorizontal size={14} /> <span className="text-[10px] uppercase font-bold">Inverter H.</span>
+                                        </button>
+                                        <button onClick={() => updateLayer({ flipY: !(activeLayer as ImageLayer).flipY })} className={`flex-1 p-2 rounded-lg flex items-center justify-center gap-2 transition-colors ${activeLayer.flipY ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-white/50 hover:bg-gray-700'}`} title="Inverter Vertical">
+                                            <FlipVertical size={14} /> <span className="text-[10px] uppercase font-bold">Inverter V.</span>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

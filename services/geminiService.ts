@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { GenerationConfig, CreationType, VisualStyle, StudioStyle, MascotStyle, MockupStyle, AspectRatio, GeneratedImage, SocialClass, UGCEnvironment, UGCModel } from "../types";
+import { enforceCorrectSpelling, buildSpellingPromptSection } from './spellingService';
 
 export const generateStudioCreative = async (
   config: GenerationConfig,
@@ -9,7 +10,8 @@ export const generateStudioCreative = async (
   stickerImage?: string | null,
   customModelImage?: string | null,
   apiKey?: string,
-  mockupReferenceImage?: string | null
+  mockupReferenceImage?: string | null,
+  additionalProducts?: (string | null)[]
 ): Promise<GeneratedImage[]> => {
   const variations: GeneratedImage[] = [];
 
@@ -18,13 +20,13 @@ export const generateStudioCreative = async (
     const variationId = Math.random().toString(36).substr(2, 9);
 
     try {
-      const variationPrompt = constructPrompt(config, v, customModelImage, !!stickerImage, !!productImage, !!referenceImage, !!mockupReferenceImage);
+      const variationPrompt = constructPrompt(config, v, customModelImage, !!stickerImage, !!productImage, !!referenceImage, !!mockupReferenceImage, !!(additionalProducts && additionalProducts.some(p => p)));
 
       // OPTIMIZATION: Removed PPT Slide logic. All creative backgrounds can include the subject if provided.
       const variationPrimary = primaryImage;
       const variationCustomModel = customModelImage;
 
-      const imageUrl = await callImageApi(variationPrompt, config.aspectRatio, variationPrimary, referenceImage, productImage, stickerImage, variationCustomModel, config.studioStyle, config.mascotStyle, config.mockupStyle, config.style, config.socialClass, !!config.isEditableMode, v, config.type, apiKey, mockupReferenceImage);
+      const imageUrl = await callImageApi(variationPrompt, config.aspectRatio, variationPrimary, referenceImage, productImage, stickerImage, variationCustomModel, config.studioStyle, config.mascotStyle, config.mockupStyle, config.style, config.socialClass, !!config.isEditableMode, v, config.type, apiKey, mockupReferenceImage, additionalProducts);
       return imageUrl ? { id: variationId, url: imageUrl, originalUrl: imageUrl, variation: v } : null;
     } catch (error: any) {
       console.error(`Variation ${v} failed:`, error);
@@ -72,18 +74,47 @@ const callImageApi = async (
   variationIndex: number = 1,
   type: string = 'Studio Photo',
   apiKey?: string,
-  mockupReferenceImage?: string | null
+  mockupReferenceImage?: string | null,
+  additionalProducts?: (string | null)[]
 ) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY || '' });
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey: apiKey || envKey || '' });
     const parts: any[] = [];
 
     const extractBase64 = (dataUrl: string) => {
-      const parts = dataUrl.split(',');
-      if (parts.length < 2) return null;
-      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
-      return { data: parts[1], mimeType: mime };
+      try {
+        if (!dataUrl || typeof dataUrl !== 'string') {
+          console.error("Invalid dataUrl type:", typeof dataUrl);
+          return null;
+        }
+        const parts = dataUrl.split(',');
+        if (parts.length < 2) {
+          console.error("Invalid dataUrl format (no comma):", dataUrl.substring(0, 50) + "...");
+          return null;
+        }
+        const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+        return { data: parts[1].trim(), mimeType: mime.trim() };
+      } catch (e) {
+        console.error("Error extracting base64:", e);
+        return null;
+      }
     };
+
+    // PROCESS ADDITIONAL PRODUCTS (MONTAGE MODE)
+    if (additionalProducts && additionalProducts.length > 0) {
+      additionalProducts.forEach((prod, index) => {
+        if (prod) {
+          const base64 = extractBase64(prod);
+          if (base64) {
+            parts.push({
+              text: `[ADDITIONAL PRODUCT IMAGE ${index + 1}]\n>>> INSTRUCTION: Include this product in the composition. Create a harmonious arrangement with the main product.`
+            });
+            parts.push({ inlineData: base64 });
+          }
+        }
+      });
+    }
 
     // ==========================================
     // PRODUCT-FIRST PARADIGM (FOR CUSTOM MODEL + PRODUCT COMBOS)
@@ -437,7 +468,7 @@ DO NOT change the person's outfit to corporate/suit unless explicitly requested.
         if (asset) {
           let label = "INPUT IMAGE 1: THE SUBJECT (PERSON). PRESERVE IDENTITY.";
           if (isEditing) {
-            label = "INPUT IMAGE TO EDIT: PRESERVE COMPOSITION EXACTLY. MODIFY ONLY THE REQUESTED AREAS.";
+            label = "INPUT IMAGE TO EDIT: PRESERVE COMPOSITION EXACTLY. DO NOT REGENERATE THE SCENE. MODIFY ONLY THE TEXT PIXELS.";
           } else if (productImage) {
             label = "INPUT IMAGE 1: THE MAIN CHARACTER. PRESERVE FACE ONLY. BODY POSE MUST BE CHANGED TO HOLD PRODUCT.";
           } else if (studioStyle) {
@@ -463,7 +494,14 @@ DO NOT change the person's outfit to corporate/suit unless explicitly requested.
       if (productImage && !referenceImage) {
         const prod = extractBase64(productImage);
         if (prod) {
-          parts.push({ text: `INPUT IMAGE 2: THE HERO PRODUCT. COMPOSITE THIS INTO THE SCENE.` });
+          parts.push({
+            text: `INPUT IMAGE 2: THE HERO PRODUCT.
+>>> THIS IS A REAL PHOTOGRAPH OF THE PRODUCT.
+>>> YOU MUST USE THE EXACT PIXELS FROM THIS IMAGE. DO NOT REDRAW IT.
+>>> DO NOT CREATE A NEW COVER, LABEL, OR PACKAGING.
+>>> IF IT IS A BOOK: THE COVER ART, TITLE, AND COLORS MUST BE PIXEL-PERFECT FROM THIS IMAGE.
+>>> COMPOSITE THIS EXACT PRODUCT INTO THE SCENE. THE PERSON MUST HOLD THIS EXACT ITEM.
+>>> FORBIDDEN: Generating a "similar" product. You must use THIS image.` });
           parts.push({ inlineData: prod });
         }
       }
@@ -502,7 +540,7 @@ DO NOT change the person's outfit to corporate/suit unless explicitly requested.
       throw new Error("O modelo não gerou a imagem esperada.");
     }
 
-    return `data: image / png; base64, ${imagePart.inlineData.data} `;
+    return `data:image/png;base64,${imagePart.inlineData.data}`;
   } catch (error: any) {
     console.error("Gemini API Critical Failure:", error);
     if (error.message?.includes('429') || error.message?.toLowerCase().includes('quota')) {
@@ -517,17 +555,17 @@ const getStyleBackground = (style: VisualStyle, variationIndex: number, hasProdu
   // Each style has 3 unique background strategies
   const styleBackgrounds: Record<VisualStyle, string[]> = {
     [VisualStyle.MODERN]: [
-      `STYLE-SPECIFIC BACKGROUND (MODERN V1 - DIGITAL APP):
+      `STYLE-SPECIFIC BACKGROUND (MODERN V1 - CLEAN DIGITAL):
       - Primary: Smooth Deep Blue (#0F172A) to Purple (#581C87) Gradient.
-      - Elements: Floating Glass UI Cards with rounded corners.
-      - Graphics: Subtle notification bubbles, search bars, soft bokeh.
+      - Elements: Abstract Glassmorphism shapes (Frosted Glass) with rounded corners.
+      - Graphics: Soft bokeh and light leaks. NO UI ELEMENTS.
       - Lighting: Soft screen-glow lighting.
-      - Layout: LEFT-ALIGNED Subject. RIGHT-ALIGNED Glass Card for Text.`,
+      - Layout: LEFT-ALIGNED Subject. RIGHT-ALIGNED Glass Panel for Text.`,
 
-      `STYLE-SPECIFIC BACKGROUND (MODERN V2 - SAAS LANDING):
+      `STYLE-SPECIFIC BACKGROUND (MODERN V2 - MINIMAL SAAS):
       - Primary: Clean Off-White to Light Grey Gradient.
-      - Elements: Abstract "Data Flow" waves (smooth lines), isometric shapes.
-      - Layout: CENTERED Subject with ample negative space around header.
+      - Elements: Abstract smooth waves and geometric shapes.
+      - Layout: CENTERED Subject with ample negative space.
       - Lighting: High-key, bright and friendly.
       - Text Zone: Clean negative space at the top.`,
 
@@ -536,7 +574,7 @@ const getStyleBackground = (style: VisualStyle, variationIndex: number, hasProdu
       - Elements: Neon accent lines (Cyan/Magenta) outlining the safe zones.
       - Layout: ASYMMETRIC dynamic composition.
       - Lighting: Cyberpunk-lite, colored rim lights.
-      - Text Zone: Inside the outlined neon frames.`
+      - Text Zone: Inside the outlined neon frames. NO GLITCH TEXT.`
     ],
 
     [VisualStyle.PROFESSIONAL]: [
@@ -853,7 +891,7 @@ const getStyleBackground = (style: VisualStyle, variationIndex: number, hasProdu
   return backgrounds[Math.max(0, index)];
 };
 
-const constructPrompt = (config: GenerationConfig, variationIndex: number, customModelImage?: string | null, hasSticker: boolean = false, hasProduct: boolean = false, hasReference: boolean = false, hasMockupReference: boolean = false): string => {
+const constructPrompt = (config: GenerationConfig, variationIndex: number, customModelImage?: string | null, hasSticker: boolean = false, hasProduct: boolean = false, hasReference: boolean = false, hasMockupReference: boolean = false, hasAdditionalProducts: boolean = false): string => {
   const { type, style, studioStyle, mascotStyle, productDescription, aspectRatio, copyText, ctaText, useAiAvatar, isEditableMode, useBoxLayout } = config;
 
 
@@ -961,6 +999,15 @@ const constructPrompt = (config: GenerationConfig, variationIndex: number, custo
     ${variationIndex === 1 ? 'ANGLE: Front / Direct View. Best for clear visibility.' : ''}
     ${variationIndex === 2 ? 'ANGLE: 45 Degree / Perspective. Best for depth.' : ''}
     ${variationIndex === 3 ? 'ANGLE: Contextual / Lifestyle. Best for vibe.' : ''}
+
+    ${hasMockupReference ? `
+    === REFERENCE OBJECT OVERRIDE (CRITICAL) ===
+    USER PROVIDED A REFERENCE PHOTO (Image 3) FOR THE OBJECT/VEHICLE.
+    1. IGNORE any generic vehicle descriptions above.
+    2. YOU MUST USE THE EXACT VEHICLE/OBJECT SHOWN IN IMAGE 3.
+    3. COPY THE SHAPE, HEADLIGHTS, GRILL, AND DETAILS FROM IMAGE 3.
+    4. APPLY THE DESIGN (Image 1) ONTO THIS EXACT OBJECT.
+    ` : ''}
 
     CRITICAL RULES:
     1. REALISM: The result must look like a PHOTO, not a 3D render.
@@ -1639,6 +1686,7 @@ FORBIDDEN:
     prompt += `
 LAYOUT & DIAGRAMMING RULES(CRITICAL):
 - GRID SYSTEM: Align all elements(Subject, Text, CTA) to a professional 12 - column grid.
+  - SAFE ZONES: Text MUST stay in the "Text Zone" (Top-Left or Bottom-Left). NEVER place text on edges or behind the person.
   - NEGATIVE SPACE: LEAVE 40 % EMPTY SPACE for text safety.DO NOT CLUTTER THE WHOLE IMAGE.
   - TEXT AREA: The text must sit on a CLEAN, HIGH - CONTRAST zone(Solid color or dark gradient area).
   - CTA BUTTON: If CTA is requested, GENERATE A PHYSICAL LOOKING "BUTTON" SHAPE(e.g., Pill shape, dropshadow) behind the text location.
@@ -1670,6 +1718,8 @@ FORBIDDEN:
   - Text overlapping the product or face
     - Tiny unreadable text
       - Text crammed into small spaces
+      - TEXT TOUCHING THE EDGES of the image (Keep padding).
+      - CROPPED text.
     `;
   }
 
@@ -1712,54 +1762,66 @@ CONTEXT & COLOR PALETTE:
     `;
   }
 
-  // TEXT RENDERING ENGINE & DIAGRAMMING
-  // Check if we should "burn" text into the pixels (Not using editable boxes)
+  // CHECK IF WE SHOULD GENERATE TEXT (Burned into pixels)
   const shouldBurnText = !useBoxLayout && !isEditableMode && type !== CreationType.STUDIO_PHOTO && style !== VisualStyle.UGC_INSTAGRAM;
 
   if (shouldBurnText) {
-    // Only enforce rigid diagramming if NO reference is present
-    if (!hasReference) {
-      prompt += `
-  >>> DIAGRAMMING & TEXT ENGINE ACTIVE << <
-    CRITICAL INSTRUCTION: THE TEXT IS THE MAIN CHARACTER.
-      1. EXPLICITLY ALLOCATE 30 % OF THE CANVAS for the text.Do not put the subject there.
-      2. CREATE A HIGH - CONTRAST ZONE(Dark Gradient Overlay or Solid Shape) specifically for the text to sit on.
-      3. CHECK CONTRAST: White Text on Light Background is FORBIDDEN.Dark Text on Dark Background is FORBIDDEN.
+    // TEXT ENGINE: STANDARD & ROBUST
+    prompt += `
+      >>> TEXT LAYOUT ENGINE ACTIVE <<<
+        1. ${hasReference ? 'Referencing Layout: Keep the layout of Image 2, but REPLACE the text with the new headline.' : 'Composition: Allocate 30% of the image used STRICTLY for text (top or bottom).'}
+    2. LEGIBILITY: The text must be readable. Use PROFESSIONAL FONTS (Sans-Serif or Modern Serif). Avoid "cartoonish" or "bubble" fonts unless specified.
+    3. INTEGRATION: Text should feel like a high-end magazine cover or professional ad. NOT a sticker.
+    4. SPELLING: Strict adherence to the provided spelling.
       `;
-    }
 
     if (config.copyText) {
+      // Pre-correct Portuguese spelling before sending to AI
+      const correctedCopyText = enforceCorrectSpelling(config.copyText);
+      const correctedCtaText = ctaText ? enforceCorrectSpelling(ctaText) : '';
+
       // If reference exists, we want to COPY its font, not use the preset font
       const typographyRules = hasReference ? "FONT STYLE: CLONE the font from Image 2 (Reference)." : getTypographyRules(style);
 
+      // Build dynamic spelling enforcement section based on the actual text
+      const spellingSection = buildSpellingPromptSection(correctedCopyText, correctedCtaText || undefined);
+
       prompt += `
-       CONTENT TO WRITE (VERBATIM - STRICT):
-- HEADLINE: "${config.copyText}"
+       CONTENT TO WRITE(VERBATIM - STRICT):
+    - HEADLINE: "${correctedCopyText}"
+    ${correctedCtaText ? `- CTA BUTTON TEXT: "${correctedCtaText}"` : ''}
        ${typographyRules}
-- SPELLING RULE: WRITE EXACTLY AS PROVIDED. DO NOT CORRECT. DO NOT CHANGE "MEDIDA" TO "MEDIRA".
-- CRITICAL: DISABLE AUTO-CORRECTION. The input text is final.
-- POSITIONING: ${hasReference ? 'MATCH REFERENCE IMAGE LAYOUT EXACTLY' : (variationIndex === 2 ? 'Asymmetrical (Left/Right)' : 'Integrated Center/Top')}.
-- SPELLING CHECK: Portuguese. Accents (á, é, ã, ç) are MANDATORY.
-       `;
+    - STYLE GUIDE: Use professional typography. KERNING and LEADING must be balanced.
+    - FINISH: Text should look like a printed asset, not a digital overlay.
+    - ERROR PREVENTION:
+      1. DO NOT INVENT WORDS.
+      2. DO NOT CHANGE "PARA" TO "PRA".
+      3. DO NOT CHANGE "VOCÊ" TO "VC".
+      4. WRITE EXACTLY WHAT IS IN THE "TARGET SENTENCE".
+
+${spellingSection}
+    - POSITIONING: ${hasReference ? 'MATCH REFERENCE IMAGE LAYOUT EXACTLY' : (variationIndex === 2 ? 'Asymmetrical (Left/Right)' : 'Integrated Center/Top')}.
+    `;
     } else {
       prompt += `
-  === NO TEXT REQUESTED ===
-    CRITICAL: The user did NOT provide any headline text.
+      === NO TEXT REQUESTED ===
+        CRITICAL: The user did NOT provide any headline text.
   DO NOT generate ANY text, titles, headlines, or typography in this image.
   This should be a TEXT - FREE composition focused purely on the visual.
-  NEGATIVE: text, typography, headlines, titles, words, letters, captions, watermarks.
+      NEGATIVE: text, typography, headlines, titles, words, letters, captions, watermarks.
       `;
     }
 
     if (ctaText) {
+      const correctedCta = enforceCorrectSpelling(ctaText);
       prompt += `
-    - ACTION BUTTON(CTA): GENERATE A VISIBLE BUTTON.
-      - TEXT ON BUTTON: "${ctaText}"
-  - STYLE: Pill Shape or Rounded Rectangle.High Contrast Color(e.g.Green / Blue) matching brand.
+        - ACTION BUTTON(CTA): GENERATE A VISIBLE BUTTON.
+      - TEXT ON BUTTON: "${correctedCta}"
+      - STYLE: Pill Shape or Rounded Rectangle.High Contrast Color(e.g.Green / Blue) matching brand.
       `;
     } else {
       prompt += `
-    - CRITICAL: DO NOT GENERATE ANY BUTTONS.NO "SIGN UP" BUTTONS.NO FAKE UI ELEMENTS.
+        - CRITICAL: DO NOT GENERATE ANY BUTTONS.NO "SIGN UP" BUTTONS.NO FAKE UI ELEMENTS.
       - CLEAN LAYOUT without Call - to - Actions.
       `;
     }
@@ -1770,28 +1832,31 @@ CONTEXT & COLOR PALETTE:
   // GLOBAL PRODUCT OVERRIDE (SAFEGUARD)
   if (hasProduct) {
     prompt += `
-  ================================================================================
+      ================================================================================
     *** GLOBAL PRODUCT RULE(OVERRIDES ALL STYLE SETTINGS) ***
     ================================================================================
-  1. HERO PRODUCT PRIORITY: ONE.
-       - The image provided as "Product" is the HOLY GRAIL. 
-       - YOU MUST COMPOSITE THIS EXACT PRODUCT IMAGE INTO THE SCENE.
+      1. HERO PRODUCT PRIORITY: ONE (UNLESS MONTAGE MODE).
+       - The image provided as "Product" is the MAIN HERO. 
+       - ${hasAdditionalProducts ? 'COMPOSITION: This is a MULTI-PRODUCT COMPOSITION. Include the MAIN product AND the ADDITIONAL products provided. Arrange them logically.' : 'YOU MUST COMPOSITE THIS EXACT PRODUCT IMAGE INTO THE SCENE.'}
        - DO NOT DRAW A NEW PRODUCT.DO NOT "INSPIRE" YOURSELF.USE THE SOURCE PIXELS.
+       - DO NOT RE - DESIGN THE PACKAGING or COVER ART.
+       - IF IT IS A BOOK: USE THE EXACT COVER ART PROVIDED.DO NOT CHANGE THE TITLE.
        - IF THE SHOWING PRODUCT IS A MACHINE(e.g., Payment Terminal), SHOW THAT EXACT MODEL.
     
-    2. ANTI - HALLUCINATION PROTOCOL:
-- DO NOT CHANGE THE BUTTON COLORS.
+    2. ANTI - HALLUCINATION PROTOCOL(CRITICAL):
+    - DO NOT CHANGE THE BUTTON COLORS.
        - DO NOT CHANGE THE SCREEN CONTENT.
        - DO NOT CHANGE THE DEVICE SHAPE.
+       - DO NOT REPLACE THE PRODUCT WITH A "FUTURISTIC VERSION".
        - IF THE HANDS DON'T FIT, CHANGE THE HANDS. NEVER CHANGE THE DEVICE.
 
-3. INTERACTION MANDATE:
-- The Subject(Person) MUST be holding the product FIRMLY.
+    3. INTERACTION MANDATE:
+    - The Subject(Person) MUST be holding the product FIRMLY.
        - HANDS MUST BE VISIBLE gripping the device.
        - IF "Minimalist" or "Clean" style is selected, YOU MUST STILL SHOW THE PRODUCT AND HANDS.
     
     4. PRODUCT FIDELITY:
-- KEEP COLORS EXACT.
+    - KEEP COLORS EXACT.
        - KEEP LOGOS VISIBLE.
        - KEEP SCREEN CONTENT(if any).
     `;
@@ -1817,7 +1882,7 @@ CONTEXT & COLOR PALETTE:
       - If user mentions color of clothing → THAT EXACT COLOR
 
 2. TEXT & TYPOGRAPHY INSTRUCTIONS:
-- If user says "texto grande" / "fontes grandes" → USE EXTRA LARGE FONTS(like 100pt equivalent)
+- ${config.copyText ? 'If user says "texto grande" / "fontes grandes" → USE EXTRA LARGE FONTS(like 100pt equivalent)' : '!!! STRICT RULE !!!: If the user asks to write any text, words, or letters in the briefing -> IGNORE IT. NO TEXT ALLOWED.'}
   - If user says "destaque" → Make text POP with high contrast and size
     - If user mentions text position → PLACE TEXT EXACTLY THERE
       - If user says "legível" → Ensure HIGH CONTRAST and LARGE SIZE
@@ -1845,6 +1910,7 @@ CONTEXT & COLOR PALETTE:
     IDENTIFY each specific request(clothing, text, colors, pose, etc.)
     APPLY each request LITERALLY - do not interpret loosely.
 If in doubt, FAVOR the user's explicit instruction over any preset.
+${!config.copyText ? '!!! FINAL WARNING !!!: DO NOT WRITE ANY TEXT FROM THE BRIEFING. KEEP THE IMAGE CLEAN OF TYPOGRAPHY.' : ''}
 
 FORBIDDEN: Ignoring any user instruction.The user is the FINAL AUTHORITY.
     `;
@@ -1989,9 +2055,11 @@ GOAL: ${isSubjectMode ? 'Create a Corporate Presentation Slide with Subject.' : 
 - TEXT: NO EXTRA WORDS.NO "LOREM IPSUM".NO FAKE PLACEHOLDERS.
   - PRODUCT: DO NOT INVENT A NEW PRODUCT.USE THE UPLOADED PRODUCT IMAGE EXACTLY.
   - STYLE: PROFESSIONAL PHOTOGRAPHY ONLY.Like magazine covers, not like mobile game ads.
-  ${style === VisualStyle.DESIGNI_PD_PRO ? `- PRODUCT FIDELITY (CRITICAL): DO NOT CHANGE THE PRODUCT. IF A NOTEBOOK IS UPLOADED, USE THAT EXACT COVER ART. DO NOT GENERATE A GENERIC CARTOON NOTEBOOK. USE THE IMAGE 2.` : ''}
+  ${hasProduct ? `- PRODUCT FIDELITY (CRITICAL): DO NOT CHANGE THE PRODUCT. IF A BOOK IS UPLOADED, USE THAT EXACT COVER ART AND TITLE. DO NOT GENERATE A NEW BOOK COVER. DO NOT REDRAW THE PACKAGING. USE THE PIXELS FROM IMAGE 2.` : ''}
+- SPELLING(CRITICAL): Copy the headline text CHARACTER BY CHARACTER.Do NOT skip letters. "bíblicas" has an L.Check every word.
 `;
 
+  // FINAL INSTRUCTION
   return prompt;
 };
 
@@ -2077,16 +2145,21 @@ const getStylePresets = (style: VisualStyle, socialClass?: SocialClass): string 
       ART DIRECTION: MODERN DIGITAL ADVERTISING(Clean & Bold).
   BACKGROUND: Smooth, matte gradient backgrounds(Deep Blue / Purple or Brand Color) with subtle motion blur.
       DESIGN ELEMENTS:
-- ROUNDED GLASS PANELS specifically placed to hold text(Sidebar or Bottom card).
-  - Floating 3D abstract shapes(Matte finish, non - distracting) to add depth.
-    - Clean layout with 40 % NEGATIVE SPACE reserved for headlines.
-      - Soft UI elements(like notification bubbles or search bars) if Tech product.
-    COLORS: Brand Colors + White / Grey.High contrast.
-      LIGHTING: Soft, diffused commercial lighting.No harsh shadows.
-        TYPOGRAPHY:
+        - ROUNDED GLASS PANELS specifically placed to hold text(Sidebar or Bottom card).
+        - Floating 3D abstract shapes(Matte finish, non - distracting) to add depth.
+        - Clean layout with 40 % NEGATIVE SPACE reserved for headlines.
+        - NO UI ELEMENTS (No search bars, no buttons, no fake text bubbles).
+      
+      *** PRODUCT RULE ***:
+- KEEP THE PRODUCT REALISTIC.Do not make it look like a 3D render.
+      - If it's a book/course, show the EXACT COVER provided.
+
+COLORS: Brand Colors + White / Grey.High contrast.
+  LIGHTING: Soft, diffused commercial lighting.No harsh shadows.
+    TYPOGRAPHY:
 - FONT FAMILY: Sans - serif Geometric(Inter, Roboto, Poppins).
-      - STYLE: Clean, bold headlines.High readability.
-      - WEIGHT: Bold for headers, Regular for body.
+        - STYLE: Clean, bold headlines.High readability.
+        - WEIGHT: Bold for headers, Regular for body.
   COMPOSITION: Asymmetrical.Subject Left / Right.Clear Empty Space for Text on opposite side.
     VIBE: Premium App Store Ad, SaaS Landing Page, Modern Startup.`;
 
@@ -2147,22 +2220,27 @@ COLORS: Pure White(#FFFFFF), Soft Grey(#F5F5F5), ONE accent color from brand.
 
     // 🔘 DARK -> Cyberpunk Premium
     case VisualStyle.DARK: return `${premiumDesignRules}
-      ART DIRECTION: PREMIUM DARK MODE(Cyberpunk / Gaming Style).
-  BACKGROUND: Matte Black(#0A0A0A) with subtle carbon fiber or hex grid texture.
+      ART DIRECTION: PREMIUM DARK MODE (High-End Tech).
+      BACKGROUND: Matte Black (#0A0A0A) with vivid neon accents.
       DESIGN ELEMENTS:
-- Neon rim lights(Cyan / Magenta / Purple)
-  - Cyberpunk grid lines fading into perspective
-    - Holographic / glitch effects
-      - Floating neon geometric shapes
-        - Subtle circuit board patterns
-COLORS: Pure Black, Neon Cyan(#00FFFF), Hot Magenta(#FF00FF), Electric Purple.
-  LIGHTING: Strong rim / edge lighting with neon colors.Dark key light.
-    TYPOGRAPHY:
-- FONT FAMILY: Monospace, Cyberpunk Sans, Futuristic(Orbitron, Rajdhani, Courier Prime).
-      - STYLE: Tech - oriented, digital, edgy.
-      - WEIGHT: Bold headers, light body.
-  COMPOSITION: Subject emerging from darkness with dramatic lighting.
-    VIBE: Gaming Brand, Tech Startup Night Mode, Cyberpunk 2077.`;
+        - Neon rim lights (Cyan / Magenta / Purple)
+        - Clean grid lines (Subtle)
+        - Floating neon geometric shapes
+        - NO GLITCH EFFECTS on text areas
+
+      *** CRITICAL TEXT RULE ***:
+      - TEXT MUST BE SOLID WHITE.
+      - DO NOT apply "holographic" or "transparent" effects to the text.
+      - Text must be perfectly legible against the dark background.
+
+      COLORS: Pure Black, Neon Cyan (#00FFFF), Hot Magenta (#FF00FF), Electric Purple.
+      LIGHTING: Strong rim / edge lighting. Dark key light.
+      TYPOGRAPHY:
+        - FONT FAMILY: Modern Sans-Serif (Roboto, Inter, Montserrat).
+        - STYLE: Clean, Bold, High Contrast. NO "Cyberpunk" distressed fonts.
+        - WEIGHT: Bold headers, Regular body.
+      COMPOSITION: Subject emerging from darkness.
+      VIBE: Premium Tech, Gaming Brand, High-End Night Mode.`;
 
     // 🔘 LUXO -> Gold & Marble Premium
     case VisualStyle.LUXURY: return `${premiumDesignRules}
@@ -2211,12 +2289,18 @@ COLORS: Off - White(#FAF9F6), Soft Beige, ONE muted accent(Sage, Terracotta, Dus
     - Holographic / iridescent accents
       - 3D abstract tech shapes(wireframe, mesh)
         - Floating graphs and charts(abstract)
-COLORS: Deep Blue(#1E3A8A), Electric Purple(#7C3AED), Cyan glow, White.
-  LIGHTING: Cool blue ambient with accent lights.
-    TYPOGRAPHY:
+
+          *** CRITICAL PRODUCT RULE FOR TECH STYLE ***:
+- THE PRODUCT ITSELF MUST REMAIN PHYSICAL AND REALISTIC.
+      - DO NOT APPLY "HOLOGRAM" OR "GLITCH" EFFECTS TO THE PRODUCT / BOOK COVER.
+      - The background is tech, the product is REAL.
+
+  COLORS: Deep Blue(#1E3A8A), Electric Purple(#7C3AED), Cyan glow, White.
+    LIGHTING: Cool blue ambient with accent lights.
+      TYPOGRAPHY:
 - FONT FAMILY: Monospace, Futuristic Sans(Space Mono, Exo 2, Share Tech Mono).
-      - STYLE: Data - driven, modern, precise.
-      - WEIGHT: Medium.
+        - STYLE: Data - driven, modern, precise.
+        - WEIGHT: Medium.
   COMPOSITION: Tech - forward, dynamic angles, multiple layers of information.
     VIBE: Stripe, Coinbase, Modern Banking App.`;
 
@@ -2313,22 +2397,27 @@ COLORS: Natural, warm tones.Golden hour palette.
 
     // 🔘 EDITORIAL -> Vogue Fashion Premium
     case VisualStyle.EDITORIAL: return `${premiumDesignRules}
-      ART DIRECTION: VOGUE EDITORIAL(High Fashion Magazine).
-  BACKGROUND: Solid color studio backdrop(Bold Red, Electric Blue, Hot Pink) OR dramatic shadows.
+      ART DIRECTION: VOGUE EDITORIAL (High Fashion Magazine).
+      BACKGROUND: Solid color studio backdrop (Bold Red, Electric Blue, Hot Pink) OR dramatic shadows.
       DESIGN ELEMENTS:
-- High contrast lighting
-  - Bold color blocking
-    - Minimalist but impactful
-      - Fashion magazine aesthetic
-        - Possible typography overlay(magazine title style)
-COLORS: ONE bold solid color + Black / White contrast.
-  LIGHTING: Hard flash, dramatic shadows, high contrast.
-    TYPOGRAPHY:
-- FONT FAMILY: High - Fashion Serif, Didone(Didot, Bodoni, Playfair Display).
-      - STYLE: Elegant, sharp, magazine cover style.
-      - WEIGHT: Bold / Black for titles, Light for captions.
-  COMPOSITION: Fashion model pose.Editorial framing.Magazine cover ready.
-    VIBE: Vogue Cover, Harper's Bazaar, Fashion Campaign.`;
+        - High contrast lighting
+        - Bold color blocking
+        - Minimalist but impactful
+        - Fashion magazine aesthetic
+      
+      *** TEXT LEGIBILITY RULE ***:
+      - Typography must be SHARP and HIGH CONTRAST.
+      - Do not let the text blend into the model's hair or clothes.
+      - Use solid colors for text (White on Dark, Black on Light).
+
+      COLORS: ONE bold solid color + Black / White contrast.
+      LIGHTING: Hard flash, dramatic shadows, high contrast.
+      TYPOGRAPHY:
+        - FONT FAMILY: Elegant Serif (Bodoni, Didot, Playfair Display) OR Clean Sans.
+        - STYLE: High-End Magazine. Legible and Chic.
+        - WEIGHT: Bold for titles, Fine for details.
+      COMPOSITION: Fashion model pose. Editorial framing. Magazine cover ready.
+      VIBE: Vogue Cover, Harper's Bazaar, Fashion Campaign.`;
 
     // 🔘 COMERCIAL PREMIUM -> Black Friday Retail
     case VisualStyle.COMMERCIAL_PREMIUM: return `${premiumDesignRules}
@@ -2370,25 +2459,22 @@ COLORS: ONE bold solid color + Black / White contrast.
 
     // 🔘 DESIGNI_PD_PRO -> Reference-Based Commercial Design
     case VisualStyle.DESIGNI_PD_PRO: return `${premiumDesignRules}
-      ART DIRECTION: TOPAR GRAPHIC DESIGN (Ad Library Winners).
-      BACKGROUND: Use one of the 3 archetypes (Split Block, Organic Container, or Floating Card) defined above.
+      ART DIRECTION: PROFESSIONAL ADVERTISING DESIGN (Clean & Organized).
+      BACKGROUND: Soft gradients or abstract geometric flows.
       
-      MANDATORY COMPOSITION RULES:
-      1. CONTAINERIZATION: Text NEVER floats on busy backgrounds. It MUST be inside a Solid Block, a Pill Shape, or a clear Card.
-      2. COLOR EXTRACTION: Detect the PRIMARY product color. Use it for the Blocks/Shapes.
-      3. SAFE ZONES: Create a "Designated Text Area" that is completely solid and high-contrast.
-      
-      REFERENCE INSPIRATION:
-      - Like high-end Real Estate ads (Split screen, clear info columns).
-      - Like Supplement ads (Bold typography, topographic textures, energy).
-      - Like Tech ads (Clean cards, floating UI elements).
-      
+      MANDATORY LAYOUT RULES:
+      1. BALANCE: Ensure the text has breathing room (padding). Do not push text to the absolute edges.
+      2. READABILITY: Background behind text must be non-distracting. Use subtle darkening or lightening behind text areas if needed.
+      3. STRUCTURE: Use a grid system. Align elements left or center.
+      4. NO ORPHANS: Avoid having single words on a line.
+
       TYPOGRAPHY:
         - FONT FAMILY: Professional Sans-Serif (Gotham, Proxima Nova, Montserrat).
-        - STYLE: Versatile, corporate, clean.
-        - WEIGHT: Multiple weights (Bold for headers, Regular for text).
+        - STYLE: Corporate, trustworthy, clean.
+        - WEIGHT: Bold for Headlines, Medium for Body.
 
-      VIBE: Commercial, Trustworthy, High-End, Organized.`;
+      COLORS: Brand Colors mainly + High Contrast White/Dark Grey.
+      VIBE: Corporate Ad, High-End Service Provider, Trustworthy.`;
 
     // 🔘 RELIGIOUS -> Ethereal Light Premium
     case VisualStyle.RELIGIOUS: return `${premiumDesignRules}
@@ -2590,27 +2676,52 @@ export const editGeneratedImage = async (
     // Basic validation
     if (!imageBase64 || !prompt) throw new Error("Missing image or prompt");
 
-    // Construct prompt
-    const editingPrompt = `
-    TASK: EDIT this image based on the user's instruction.
-    USER INSTRUCTION: "${prompt}"
-    
-    CRITICAL RULES:
-    1. STRICT INPAINTING TASK: ONLY change what is explicitly requested.
-    2. LOCK COMPOSITION: Do NOT zoom, crop, or change the camera angle. The output MUST perfectly overlay the original.
-    3. PRESERVE EVERYTHING ELSE: Background, lighting, and pose must remain IDENTICAL unless the prompt asks to change them.
-    4. PRESERVE FACE IDENTITY: Do not morph the face.
-    5. NO TEXT HALLUCINATIONS. NO WATERMARKS.
-    
-    OUTPUT: A high-quality photorealistic image with the requested edit applied.
-    `;
+    // DETECT TEXT EDITING INTENT
+    // REFINED: Only trigger text mode if explicitly mentioned. Generic verbs (mudar, trocar) caused false positives.
+    const textKeywords = ['texto', 'escrita', 'palavra', 'letras', 'frase', 'escrever', 'ortografia', 'ortográfico', 'typo', 'título', 'legenda'];
+    const lowerPrompt = prompt.toLowerCase();
+    const isTextEdit = textKeywords.some(keyword => lowerPrompt.includes(keyword));
 
-    // Reuse callImageApi. We pass imageBase64 as 'primaryImage' (subject input).
-    // We pass aspect ratio '1:1' as default or maybe we should preserve? 
-    // callImageApi uses aspect ratio mainly for generation? No, it passes it to the generic prompt or irrelevant for img2img if model follows input.
-    // However, callImageApi response is string | null.
-    // Reuse callImageApi with specialized editing flag
-    // Reuse callImageApi with specialized editing flag
+    let editingPrompt = "";
+
+    if (isTextEdit) {
+      // PROMPT OTIMIZADO PARA EDIÇÃO DE TEXTO (PRESERVAÇÃO MAXIMA V3)
+      editingPrompt = `
+      TASK: OPTICAL CHARACTER RECOGNITION (OCR) + TEXT INPAINTING.
+      USER INSTRUCTION: "${prompt}"
+
+      >>> EXECUTION RULES (STRICT):
+      1. STRATEGY: Treat this as a TEXT REPLACEMENT task.
+         - OCR STEP: Read the existing text at the target location.
+         - INPAINT STEP: Replace ONLY the text pixels with the new text.
+      
+      2. PRESERVATION (CRITICAL):
+         - DO NOT REGENERATE THE SCENE.
+         - DO NOT REMOVE THE OBJECT HOLDING THE TEXT (Phone, Paper, Sign).
+         - Keep the BACKGROUND, LIGHTING, and HANDS 100% UNCHANGED.
+      
+      3. STYLE MATCHING:
+         - Detect the font, color, and perspective of the original text.
+         - Apply the NEW text using the SAME style.
+         - If deleting: Fill the space with the underlying texture (paper grain, screen pixels).
+
+      NEGATIVE PROMPT:
+      - removing objects, changing background, re-generating scene, new image, distortion, deleting phone, deleting paper.
+      `;
+    } else {
+      // PROMPT GERAL (MANTIDO)
+      editingPrompt = `
+      TASK: IMAGE INPAINTING / EDITING
+      USER INSTRUCTION: "${prompt}"
+      
+      CRITICAL:
+      1. EDIT ONLY what is asked.
+      2. PRESERVE the rest of the image (Lighting, Composition, Face, Background).
+      3. REALISM: The edit must look photorealistic and seamless.
+      `;
+    }
+
+    // Reuse callImageApi per previous logic
     const newImageUrl = await callImageApi(editingPrompt, aspectRatio, imageBase64, null, null, null, null, undefined, undefined, undefined, undefined, undefined, true, 1, 'Editing', apiKey);
 
     if (!newImageUrl) {
@@ -2631,6 +2742,10 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Geometric Sans-Serif (e.g., Futura, Montserrat, Avant Garde).
       - CASING: UPPERCASE HEADLINES.
       - DECORATION: Clean text, floating on negative space. NO BOXES.
+      - SPELLING CHECK (CRITICAL): 
+        - PORTUGUESE MUST BE PERFECT. 
+        - USE ACCENTS CORRECTLY: "É", "NÃO", "COMÉRCIO".
+        - NO FAKE WORDS. NO "LOREM IPSUM".
       - COLOR: High Contrast (White on Dark, Black on Light).
       - VIBE: Tech-focused, Clean, Minimal data-driven.
       `;
@@ -2653,16 +2768,32 @@ const getTypographyRules = (style: VisualStyle): string => {
       - COLOR: Brand contrast.
       `;
     case VisualStyle.COMMERCIAL_PREMIUM:
-    case VisualStyle.DELIVERY:
     case VisualStyle.UGC_INSTAGRAM:
       return `
       - TYPOGRAPHY RULES (RETAIL/SALES):
       - FONT: HEAVY IMPACT FONT (Bold Sans-Serif, Condensed).
       - CASING: UPPERCASE ONLY. HUGE SIZE.
       - DECORATION: MANDATORY "SALE TAGS" or "STRIPS" (Tarjas) behind main keywords (Yellow/Red backgrounds).
-      - SPELLING CHECK: PORTUGUESE ACCENTS ARE MANDATORY (Ã, Ç, É). "PORÇÃO" NOT "PORCAN".
+      - SPELLING CHECK (CRITICAL): 
+        - PORTUGUESE MUST BE PERFECT. 
+        - USE ACCENTS CORRECTLY: "É", "NÃO", "PROMOÇÃO".
+        - NO FAKE WORDS. NO "LOREM IPSUM".
       - COLOR: White Text on Red/Yellow/Blue Strips.
       - VIBE: Urgent, Promotional, High Energy.
+      `;
+    case VisualStyle.DELIVERY:
+      return `
+      - TYPOGRAPHY RULES (PREMIUM FOOD DELIVERY):
+      - FONT: Friendly Rounded Sans (Fredoka, Varela) OR Modern Script (Pacifico).
+      - CASING: Mixed Case allowed for Script, UPPERCASE for Headlines.
+      - DECORATION: Clean integration, floating text, or subtle dark gradients. NO AGGRESSIVE SALE STRIPS.
+      - SPELLING CHECK (CRITICAL):
+        - PORTUGUESE MUST BE PERFECT. 
+        - DO NOT WRITE "CORAÇIÕES" -> WRITE "CORAÇÕES".
+        - DO NOT WRITE "ESSÉ" -> WRITE "ESSE".
+        - USE ACCENTS CORRECTLY: "CAFÉ", "NÃO", "É".
+      - COLOR: Cream, White, or Gold/Orange.
+      - VIBE: Appetizing, Warm, Inviting.
       `;
     case VisualStyle.LUXURY:
       return `
@@ -2670,6 +2801,7 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Elegant Serif (Bodoni, Didot, Playfair Display) or Ultra-Thin Sans.
       - CASING: WIDE LETTER SPACING (Kerning), UPPERCASE.
       - DECORATION: Gold/Silver Foil effect, Minimalist. NO background boxes.
+      - SPELLING CHECK (CRITICAL): PORTUGUESE MUST BE PERFECT. USE ACCENTS.
       - COLOR: Gold, Silver, White, Black.
       - VIBE: Expensive, Exclusive, High-End fashion.
       `;
@@ -2679,8 +2811,22 @@ const getTypographyRules = (style: VisualStyle): string => {
       - FONT: Monospace (Courier New) or futuristic Sans.
       - CASING: lowercase or UPPERCASE mixed.
       - DECORATION: Glitch effect, Neon Glow, or Digital "Terminal" look.
+      - SPELLING CHECK (CRITICAL): NO FAKE WORDS. PERFECT PORTUGUESE.
       - COLOR: Cyan, Neon Green, White.
       - VIBE: Cyberpunk, Digital, Code.
+      `;
+    case VisualStyle.DARK:
+      return `
+      - TYPOGRAPHY RULES (DARK MODE):
+      - FONT: Bold Sans-Serif (Inter, Roboto) or Cyberpunk.
+      - CASING: UPPERCASE.
+      - DECORATION: Neon Glow perimeters, Dark Cards.
+      - SPELLING CHECK (CRITICAL): 
+        - PORTUGUESE MUST BE PERFECT. 
+        - USE ACCENTS CORRECTLY: "É", "NÃO".
+        - NO FAKE WORDS.
+      - COLOR: White, Neon Cyan, Neon Purple.
+      - VIBE: Night mode, Gaming, Premium Tech.
       `;
     case VisualStyle.INFANTIL:
       return `
