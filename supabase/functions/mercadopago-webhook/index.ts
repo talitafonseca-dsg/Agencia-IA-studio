@@ -126,6 +126,7 @@ Deno.serve(async (req: Request) => {
             password: DEFAULT_PASSWORD,
             email_confirm: true, // Auto-confirma o email
             user_metadata: {
+                full_name: payerName || '',
                 plan_type: planType,
                 payment_id: paymentId,
                 purchase_date: new Date().toISOString(),
@@ -148,6 +149,7 @@ Deno.serve(async (req: Request) => {
                     await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
                         user_metadata: {
                             ...existingUser.user_metadata,
+                            full_name: payerName || existingUser.user_metadata?.full_name || '',
                             plan_type: planType,
                             payment_id: paymentId,
                             last_payment_date: new Date().toISOString(),
